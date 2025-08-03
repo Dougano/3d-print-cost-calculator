@@ -980,12 +980,15 @@
                 <div class="bg-white rounded-lg shadow-lg p-4">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-semibold text-gray-800">Products (${displayProducts.length})</h2>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <button onclick="importProducts()" class="text-green-600 hover:text-green-800 text-sm">
                                 📤 Import
                             </button>
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
                                 📥 Export
+                            </button>
+                            <button onclick="exportAsDatabase()" class="text-purple-600 hover:text-purple-800 text-sm" title="Export as products.json database format">
+                                🗄️ DB
                             </button>
                             <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 text-sm" title="${state.autoExportEnabled ? 'Auto-export ON' : 'Auto-export OFF'}">
                                 ${state.autoExportEnabled ? '🔄' : '⏸️'} Auto
@@ -1396,12 +1399,15 @@
                         <h2 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
                             📦 Saved Products (${displayProducts.length}${state.products.length !== displayProducts.length ? ` of ${state.products.length}` : ''})
                         </h2>
-                        <div class="flex gap-3">
+                        <div class="flex gap-3 flex-wrap">
                             <button onclick="importProducts()" class="text-green-600 hover:text-green-800 font-medium">
                                 📤 Import
                             </button>
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 font-medium">
                                 📥 Export
+                            </button>
+                            <button onclick="exportAsDatabase()" class="text-purple-600 hover:text-purple-800 font-medium" title="Export as products.json database format">
+                                🗄️ Export DB
                             </button>
                             <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 font-medium" title="${state.autoExportEnabled ? 'Auto-export enabled - files auto-download' : 'Auto-export disabled - manual export only'}">
                                 ${state.autoExportEnabled ? '🔄 Auto-Export ON' : '⏸️ Auto-Export OFF'}
@@ -1754,9 +1760,11 @@
             const exportData = {
                 metadata: {
                     exportDate: timestamp,
-                    version: "2.0.0",
+                    version: "2.1.0",
                     productCount: state.products.length,
-                    autoExport: isAutoExport
+                    autoExport: isAutoExport,
+                    description: "3D Print Cost Calculator Product Database",
+                    currency: "ZAR"
                 },
                 products: state.products
             };
@@ -1777,6 +1785,36 @@
                 console.log(`Auto-exported ${state.products.length} products to ${exportFileDefaultName}`);
                 showNotification(`📁 Auto-exported ${state.products.length} products`, 'success');
             }
+        }
+
+        // Export as products.json database format (for updating the main database file)
+        function exportAsDatabase() {
+            const timestamp = new Date().toISOString();
+            
+            const databaseData = {
+                metadata: {
+                    version: "2.1.0",
+                    lastUpdated: timestamp,
+                    description: "3D Print Cost Calculator Product Database",
+                    totalProducts: state.products.length,
+                    currency: "ZAR"
+                },
+                products: state.products
+            };
+            
+            const dataStr = JSON.stringify(databaseData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', 'products.json');
+            linkElement.style.display = 'none';
+            document.body.appendChild(linkElement);
+            linkElement.click();
+            document.body.removeChild(linkElement);
+            
+            console.log(`Exported ${state.products.length} products as products.json database format`);
+            showNotification(`🗄️ Exported as database format (products.json)`, 'success');
         }
 
         // Auto-export functionality
@@ -2048,6 +2086,44 @@
             }
         }
 
+        // Load products from JSON database file
+        async function loadFromProductsDatabase() {
+            try {
+                const response = await fetch('./products.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.products && Array.isArray(data.products)) {
+                        console.log(`Loading ${data.products.length} products from products.json database`);
+                        console.log('Database metadata:', data.metadata);
+                        
+                        // Check if user has local products that should be preserved
+                        const hasLocalProducts = state.products.length > 0;
+                        
+                        if (hasLocalProducts) {
+                            // Merge with existing products - keep local changes priority
+                            const localProductIds = new Set(state.products.map(p => p.id));
+                            const newProducts = data.products.filter(p => !localProductIds.has(p.id));
+                            
+                            if (newProducts.length > 0) {
+                                state.products.push(...newProducts);
+                                console.log(`Added ${newProducts.length} new products from database`);
+                            }
+                        } else {
+                            // No local products, use database as initial data
+                            state.products = data.products;
+                            console.log(`Initialized with ${data.products.length} products from database`);
+                        }
+                        
+                        return true;
+                    }
+                }
+            } catch (error) {
+                console.log('Could not load products.json database:', error);
+            }
+            return false;
+        }
+
         // Initialize app
         async function init() {
             try {
@@ -2058,8 +2134,16 @@
                 await migrateFromIndexedDB();
                 await migrateFromLocalStorage();
                 
-                // Load products from PouchDB
+                // Load products from PouchDB (user's local data)
                 await loadFromDatabase();
+                
+                // Load products from JSON database file (supplement with database products)
+                await loadFromProductsDatabase();
+                
+                // Save merged data back to PouchDB
+                if (state.products.length > 0) {
+                    await saveToDatabase();
+                }
                 
                 // Initialize filtered products
                 state.filteredProducts = state.products;
@@ -2077,10 +2161,18 @@
                 // Setup auto-backup monitoring
                 setupAutoBackup();
                 
-                console.log(`App initialization complete with PouchDB. Auto-export: ${state.autoExportEnabled ? 'enabled' : 'disabled'}`);
+                console.log(`App initialization complete. Total products: ${state.products.length}, Auto-export: ${state.autoExportEnabled ? 'enabled' : 'disabled'}`);
             } catch (e) {
-                console.error('PouchDB initialization failed, falling back to localStorage:', e);
-                loadFromStorage();
+                console.error('Database initialization failed, falling back to basic mode:', e);
+                
+                // Try to load from products.json as fallback
+                const loaded = await loadFromProductsDatabase();
+                if (!loaded) {
+                    // Final fallback - load from localStorage
+                    loadFromStorage();
+                }
+                
+                state.filteredProducts = state.products;
             }
             
             // PWA setup

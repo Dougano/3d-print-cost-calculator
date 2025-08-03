@@ -30,13 +30,15 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Import/Export** - JSON file-based data exchange
 - **Sample Data** - Pre-loaded examples to get started quickly
 
-### 📁 File-Based Persistence
-- **JSON Database** - Human-readable data files with metadata
+### 📁 File-Based Database System
+- **products.json Database** - Central product database file in repository
+- **Auto-Merge** - Automatically loads database products on first visit
+- **User Data Priority** - Local changes take precedence over database
+- **Database Export** - Export current products as new database format
 - **Auto-Export** - Automatic file downloads after every 5 changes
 - **Manual Export** - On-demand timestamped backups
 - **Import Products** - Load data from JSON files with validation
 - **Cross-Device Sharing** - Email or cloud-share product collections
-- **Version Control** - Sample data tracked in Git repository
 
 ### 🔄 Optional Cloud Sync
 - **CouchDB Support** - Real-time sync across devices
@@ -140,6 +142,7 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 3d-print-cost-calulator/
 ├── index.html              # Main application (includes PouchDB integration)
 ├── manifest.json           # PWA manifest
+├── products.json           # Main product database (12 products)
 ├── sample-products.json    # Sample data for new users
 └── README.md               # This documentation
 ```
@@ -200,7 +203,14 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v2.1.0 (Current) - Auto-Export Edition
+### v2.2.0 (Current) - Database Edition
+- ✅ **JSON Database File** - Central products.json database with 12 sample products
+- ✅ **Auto-Merge System** - Automatically loads database products on startup
+- ✅ **Database Export** - Export current collection as products.json format
+- ✅ **Smart Data Management** - User data priority with database supplementation
+- ✅ **Copy-Paste Friendly Inputs** - Flexible number parsing for better UX
+
+### v2.1.0 - Auto-Export Edition
 - ✅ **Auto-Export System** - Automatic file downloads after every 5 changes
 - ✅ **Smart Notifications** - Visual feedback for auto-exports and operations
 - ✅ **Enhanced Export Format** - JSON files with metadata and versioning
