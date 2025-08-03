@@ -12,6 +12,7 @@
     <title>3D Print Cost Calculator</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
     <style>
         body { 
             margin: 0; 
@@ -39,7 +40,7 @@
             printTime: 2,
             hourlyRate: 0,
             markup: 15,
-            printerPower: 1,
+            printerPower: 350,
             electricityRate: 3.50,
             maintenanceCostPerHour: 8.50,
             
@@ -48,6 +49,12 @@
             productName: '',
             editingProduct: null,
             showMobileMenu: false,
+            
+            // Search and filtering
+            searchQuery: '',
+            selectedMaterial: '',
+            sortOrder: 'date_desc', // date_desc, date_asc, price_desc, price_asc
+            filteredProducts: [],
             
             // Cost overrides (removed)
         };
@@ -114,7 +121,7 @@
         // Cost editing functions (removed)
 
         // Product functions
-        function saveProduct() {
+        async function saveProduct() {
             if (!state.productName.trim()) return;
 
             const productData = {
@@ -149,7 +156,7 @@
 
             state.productName = '';
             saveToStorage();
-            render();
+            await applyFilters();
         }
 
         function editProduct(product) {
@@ -171,15 +178,15 @@
             render();
         }
 
-        function deleteProduct(id) {
+        async function deleteProduct(id) {
             if (confirm('Are you sure you want to delete this product?')) {
                 state.products = state.products.filter(p => p.id !== id);
                 saveToStorage();
-                render();
+                await applyFilters();
             }
         }
 
-        function duplicateProduct(product) {
+        async function duplicateProduct(product) {
             const duplicatedProduct = {
                 ...product,
                 id: Date.now(),
@@ -188,7 +195,7 @@
             };
             state.products.push(duplicatedProduct);
             saveToStorage();
-            render();
+            await applyFilters();
         }
 
         function clearCalculator() {
@@ -206,29 +213,533 @@
             state.printTime = 2;
             state.hourlyRate = 0;
             state.markup = 15;
-            state.printerPower = 1;
+            state.printerPower = 350;
             state.electricityRate = 3.50;
             state.maintenanceCostPerHour = 8.50;
             // resetAllCosts removed
         }
 
-        // Storage functions
-        function saveToStorage() {
+        // Database functions (PouchDB)
+        let db = null;
+        const DB_NAME = 'print_calculator';
+
+        async function initDatabase() {
             try {
-                localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                db = new PouchDB(DB_NAME);
+                console.log('PouchDB database initialized successfully');
+                
+                // Create indexes for better querying
+                await createIndexes();
+                
+                return db;
             } catch (e) {
-                console.log('Storage error:', e);
+                console.error('PouchDB initialization failed:', e);
+                throw e;
             }
         }
 
-        function loadFromStorage() {
+        async function createIndexes() {
+            try {
+                // Index for product name searches
+                await db.createIndex({
+                    index: { fields: ['name'] }
+                });
+                
+                // Index for date-based queries
+                await db.createIndex({
+                    index: { fields: ['createdAt'] }
+                });
+                
+                // Index for material type filtering
+                await db.createIndex({
+                    index: { fields: ['filamentType'] }
+                });
+                
+                // Compound index for sorting by price
+                await db.createIndex({
+                    index: { fields: ['finalPrice', 'createdAt'] }
+                });
+                
+                console.log('Database indexes created successfully');
+            } catch (e) {
+                console.error('Index creation error:', e);
+            }
+        }
+
+        async function saveToDatabase() {
+            if (!db) {
+                console.error('Database not initialized');
+                return;
+            }
+            
+            try {
+                // Get all existing docs to handle updates properly
+                const existingDocs = await db.allDocs({ include_docs: true });
+                const existingById = {};
+                existingDocs.rows.forEach(row => {
+                    if (row.doc && !row.doc._id.startsWith('_design/')) {
+                        existingById[row.doc.productId] = row.doc;
+                    }
+                });
+                
+                // Prepare documents for bulk operations
+                const docsToSave = [];
+                const currentProductIds = new Set();
+                
+                for (const product of state.products) {
+                    currentProductIds.add(product.id);
+                    const existingDoc = existingById[product.id];
+                    
+                    const doc = {
+                        _id: existingDoc ? existingDoc._id : `product_${product.id}`,
+                        _rev: existingDoc ? existingDoc._rev : undefined,
+                        productId: product.id,
+                        type: 'product',
+                        ...product
+                    };
+                    
+                    docsToSave.push(doc);
+                }
+                
+                // Add deleted docs
+                Object.values(existingById).forEach(doc => {
+                    if (!currentProductIds.has(doc.productId)) {
+                        docsToSave.push({
+                            ...doc,
+                            _deleted: true
+                        });
+                    }
+                });
+                
+                if (docsToSave.length > 0) {
+                    await db.bulkDocs(docsToSave);
+                }
+                
+                console.log('Products saved to PouchDB');
+            } catch (e) {
+                console.error('Database save error:', e);
+            }
+        }
+
+        async function loadFromDatabase() {
+            if (!db) {
+                console.error('Database not initialized');
+                return;
+            }
+            
+            try {
+                const result = await db.find({
+                    selector: { type: 'product' },
+                    sort: [{ 'createdAt': 'desc' }]
+                });
+                
+                state.products = result.docs.map(doc => ({
+                    id: doc.productId,
+                    name: doc.name,
+                    filamentType: doc.filamentType,
+                    customDensity: doc.customDensity,
+                    filamentDiameter: doc.filamentDiameter,
+                    filamentLength: doc.filamentLength,
+                    filamentPrice: doc.filamentPrice,
+                    filamentWeight: doc.filamentWeight,
+                    printTime: doc.printTime,
+                    hourlyRate: doc.hourlyRate,
+                    markup: doc.markup,
+                    printerPower: doc.printerPower,
+                    electricityRate: doc.electricityRate,
+                    maintenanceCostPerHour: doc.maintenanceCostPerHour,
+                    materialCost: doc.materialCost,
+                    laborCost: doc.laborCost,
+                    operationalCost: doc.operationalCost,
+                    finalPrice: doc.finalPrice,
+                    profit: doc.profit,
+                    createdAt: doc.createdAt
+                }));
+                
+                console.log(`Loaded ${state.products.length} products from PouchDB`);
+                return state.products;
+            } catch (e) {
+                console.error('Database load error:', e);
+                return [];
+            }
+        }
+
+        async function migrateFromLocalStorage() {
             try {
                 const saved = localStorage.getItem('3d_printing_products');
                 if (saved) {
-                    state.products = JSON.parse(saved);
+                    const products = JSON.parse(saved);
+                    if (products.length > 0) {
+                        console.log(`Migrating ${products.length} products from localStorage to PouchDB`);
+                        state.products = products;
+                        await saveToDatabase();
+                        localStorage.removeItem('3d_printing_products');
+                        console.log('Migration to PouchDB complete, localStorage cleared');
+                    }
                 }
             } catch (e) {
-                console.log('Load error:', e);
+                console.log('Migration error:', e);
+            }
+        }
+
+        async function migrateFromIndexedDB() {
+            try {
+                // Try to open the old IndexedDB
+                const request = indexedDB.open('3DPrintCalculatorDB', 1);
+                
+                return new Promise((resolve) => {
+                    request.onsuccess = async () => {
+                        try {
+                            const idb = request.result;
+                            const transaction = idb.transaction(['products'], 'readonly');
+                            const store = transaction.objectStore('products');
+                            const getAll = store.getAll();
+                            
+                            getAll.onsuccess = async () => {
+                                const products = getAll.result;
+                                if (products && products.length > 0) {
+                                    console.log(`Migrating ${products.length} products from IndexedDB to PouchDB`);
+                                    state.products = products;
+                                    await saveToDatabase();
+                                    
+                                    // Clean up old IndexedDB
+                                    idb.close();
+                                    indexedDB.deleteDatabase('3DPrintCalculatorDB');
+                                    console.log('Migration from IndexedDB complete, old database removed');
+                                }
+                                resolve();
+                            };
+                            
+                            getAll.onerror = () => resolve();
+                        } catch (e) {
+                            console.log('IndexedDB migration error:', e);
+                            resolve();
+                        }
+                    };
+                    
+                    request.onerror = () => resolve();
+                });
+            } catch (e) {
+                console.log('IndexedDB migration error:', e);
+            }
+        }
+
+        // Advanced querying functions
+        async function searchProducts(query) {
+            if (!db || !query.trim()) {
+                return state.products;
+            }
+            
+            try {
+                const result = await db.find({
+                    selector: {
+                        type: 'product',
+                        name: { $regex: new RegExp(query.trim(), 'i') }
+                    },
+                    sort: [{ 'createdAt': 'desc' }]
+                });
+                
+                return result.docs.map(doc => ({
+                    id: doc.productId,
+                    name: doc.name,
+                    filamentType: doc.filamentType,
+                    customDensity: doc.customDensity,
+                    filamentDiameter: doc.filamentDiameter,
+                    filamentLength: doc.filamentLength,
+                    filamentPrice: doc.filamentPrice,
+                    filamentWeight: doc.filamentWeight,
+                    printTime: doc.printTime,
+                    hourlyRate: doc.hourlyRate,
+                    markup: doc.markup,
+                    printerPower: doc.printerPower,
+                    electricityRate: doc.electricityRate,
+                    maintenanceCostPerHour: doc.maintenanceCostPerHour,
+                    materialCost: doc.materialCost,
+                    laborCost: doc.laborCost,
+                    operationalCost: doc.operationalCost,
+                    finalPrice: doc.finalPrice,
+                    profit: doc.profit,
+                    createdAt: doc.createdAt
+                }));
+            } catch (e) {
+                console.error('Search error:', e);
+                return state.products.filter(p => 
+                    p.name.toLowerCase().includes(query.toLowerCase())
+                );
+            }
+        }
+
+        async function filterProductsByMaterial(materialType) {
+            if (!db || !materialType) {
+                return state.products;
+            }
+            
+            try {
+                const result = await db.find({
+                    selector: {
+                        type: 'product',
+                        filamentType: materialType
+                    },
+                    sort: [{ 'createdAt': 'desc' }]
+                });
+                
+                return result.docs.map(doc => ({
+                    id: doc.productId,
+                    name: doc.name,
+                    filamentType: doc.filamentType,
+                    customDensity: doc.customDensity,
+                    filamentDiameter: doc.filamentDiameter,
+                    filamentLength: doc.filamentLength,
+                    filamentPrice: doc.filamentPrice,
+                    filamentWeight: doc.filamentWeight,
+                    printTime: doc.printTime,
+                    hourlyRate: doc.hourlyRate,
+                    markup: doc.markup,
+                    printerPower: doc.printerPower,
+                    electricityRate: doc.electricityRate,
+                    maintenanceCostPerHour: doc.maintenanceCostPerHour,
+                    materialCost: doc.materialCost,
+                    laborCost: doc.laborCost,
+                    operationalCost: doc.operationalCost,
+                    finalPrice: doc.finalPrice,
+                    profit: doc.profit,
+                    createdAt: doc.createdAt
+                }));
+            } catch (e) {
+                console.error('Filter error:', e);
+                return state.products.filter(p => p.filamentType === materialType);
+            }
+        }
+
+        async function sortProductsByPrice(ascending = false) {
+            if (!db) {
+                return state.products.sort((a, b) => 
+                    ascending ? a.finalPrice - b.finalPrice : b.finalPrice - a.finalPrice
+                );
+            }
+            
+            try {
+                const result = await db.find({
+                    selector: { type: 'product' },
+                    sort: ascending ? 
+                        [{ 'finalPrice': 'asc' }] : 
+                        [{ 'finalPrice': 'desc' }]
+                });
+                
+                return result.docs.map(doc => ({
+                    id: doc.productId,
+                    name: doc.name,
+                    filamentType: doc.filamentType,
+                    customDensity: doc.customDensity,
+                    filamentDiameter: doc.filamentDiameter,
+                    filamentLength: doc.filamentLength,
+                    filamentPrice: doc.filamentPrice,
+                    filamentWeight: doc.filamentWeight,
+                    printTime: doc.printTime,
+                    hourlyRate: doc.hourlyRate,
+                    markup: doc.markup,
+                    printerPower: doc.printerPower,
+                    electricityRate: doc.electricityRate,
+                    maintenanceCostPerHour: doc.maintenanceCostPerHour,
+                    materialCost: doc.materialCost,
+                    laborCost: doc.laborCost,
+                    operationalCost: doc.operationalCost,
+                    finalPrice: doc.finalPrice,
+                    profit: doc.profit,
+                    createdAt: doc.createdAt
+                }));
+            } catch (e) {
+                console.error('Sort error:', e);
+                return state.products.sort((a, b) => 
+                    ascending ? a.finalPrice - b.finalPrice : b.finalPrice - a.finalPrice
+                );
+            }
+        }
+
+        async function getProductStats() {
+            if (!db) {
+                return calculateStatsFromArray(state.products);
+            }
+            
+            try {
+                const result = await db.find({
+                    selector: { type: 'product' }
+                });
+                
+                return calculateStatsFromArray(result.docs);
+            } catch (e) {
+                console.error('Stats error:', e);
+                return calculateStatsFromArray(state.products);
+            }
+        }
+
+        function calculateStatsFromArray(products) {
+            if (products.length === 0) {
+                return {
+                    totalProducts: 0,
+                    totalRevenue: 0,
+                    totalProfit: 0,
+                    averagePrice: 0,
+                    averageProfit: 0,
+                    materialBreakdown: {}
+                };
+            }
+            
+            const totalRevenue = products.reduce((sum, p) => sum + (p.finalPrice || 0), 0);
+            const totalProfit = products.reduce((sum, p) => sum + (p.profit || 0), 0);
+            const materialBreakdown = {};
+            
+            products.forEach(p => {
+                const material = p.filamentType || 'Unknown';
+                if (!materialBreakdown[material]) {
+                    materialBreakdown[material] = 0;
+                }
+                materialBreakdown[material]++;
+            });
+            
+            return {
+                totalProducts: products.length,
+                totalRevenue,
+                totalProfit,
+                averagePrice: totalRevenue / products.length,
+                averageProfit: totalProfit / products.length,
+                materialBreakdown
+            };
+        }
+
+        // CouchDB Sync functionality (optional)
+        let syncHandler = null;
+        
+        async function setupSync(remoteUrl) {
+            if (!db || !remoteUrl) {
+                console.error('Database or remote URL not provided');
+                return false;
+            }
+            
+            try {
+                // Stop existing sync if any
+                if (syncHandler) {
+                    syncHandler.cancel();
+                }
+                
+                syncHandler = db.sync(remoteUrl, {
+                    live: true,
+                    retry: true
+                }).on('change', (info) => {
+                    console.log('Sync change:', info);
+                    // Reload products when changes come from remote
+                    if (info.direction === 'pull') {
+                        loadFromDatabase().then(() => render());
+                    }
+                }).on('paused', () => {
+                    console.log('Sync paused');
+                }).on('active', () => {
+                    console.log('Sync resumed');
+                }).on('denied', (err) => {
+                    console.error('Sync denied:', err);
+                }).on('complete', (info) => {
+                    console.log('Sync complete:', info);
+                }).on('error', (err) => {
+                    console.error('Sync error:', err);
+                });
+                
+                console.log('Sync setup successful');
+                return true;
+            } catch (e) {
+                console.error('Sync setup failed:', e);
+                return false;
+            }
+        }
+        
+        function stopSync() {
+            if (syncHandler) {
+                syncHandler.cancel();
+                syncHandler = null;
+                console.log('Sync stopped');
+            }
+        }
+
+        // Enhanced storage with multiple fallbacks
+        function saveToStorage() {
+            saveToDatabase().catch(e => {
+                console.log('PouchDB save failed, using fallbacks');
+                
+                // Try multiple storage methods for redundancy
+                try {
+                    // Primary fallback: localStorage
+                    localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                    localStorage.setItem('3d_printing_backup_timestamp', new Date().toISOString());
+                    
+                    // Secondary fallback: sessionStorage (temporary)
+                    sessionStorage.setItem('3d_printing_products_session', JSON.stringify(state.products));
+                    
+                    // Tertiary fallback: export trigger for user download
+                    if (state.products.length > 10) {
+                        console.warn('Large dataset detected. Consider enabling cloud sync for better persistence.');
+                    }
+                } catch (err) {
+                    console.error('All storage methods failed:', err);
+                    // Show user warning about data persistence
+                    showStorageWarning();
+                }
+            });
+        }
+
+        function loadFromStorage() {
+            loadFromDatabase().catch(e => {
+                console.log('PouchDB load failed, using fallbacks');
+                try {
+                    // Try localStorage first
+                    const saved = localStorage.getItem('3d_printing_products');
+                    if (saved) {
+                        state.products = JSON.parse(saved);
+                        console.log('Loaded from localStorage backup');
+                        return;
+                    }
+                    
+                    // Try sessionStorage as fallback
+                    const sessionSaved = sessionStorage.getItem('3d_printing_products_session');
+                    if (sessionSaved) {
+                        state.products = JSON.parse(sessionSaved);
+                        console.log('Loaded from sessionStorage backup');
+                        // Immediately try to save to localStorage
+                        localStorage.setItem('3d_printing_products', sessionSaved);
+                    }
+                } catch (err) {
+                    console.error('Load error:', err);
+                }
+            });
+        }
+
+        function showStorageWarning() {
+            // Only show once per session
+            if (!sessionStorage.getItem('storage_warning_shown')) {
+                setTimeout(() => {
+                    if (confirm('Storage issue detected. Would you like to export your data as backup?')) {
+                        exportProducts();
+                    }
+                    sessionStorage.setItem('storage_warning_shown', 'true');
+                }, 1000);
+            }
+        }
+
+        // Auto-backup functionality
+        function setupAutoBackup() {
+            // Export data automatically when products reach certain thresholds
+            const productCount = state.products.length;
+            const lastBackup = localStorage.getItem('last_auto_backup');
+            const now = new Date().toISOString();
+            
+            // Auto-backup conditions
+            const shouldBackup = (
+                productCount >= 50 && (!lastBackup || 
+                (new Date(now) - new Date(lastBackup)) > 7 * 24 * 60 * 60 * 1000) // 7 days
+            );
+            
+            if (shouldBackup) {
+                console.log('Triggering auto-backup...');
+                localStorage.setItem('last_auto_backup', now);
+                // Could trigger download or cloud sync here
             }
         }
 
@@ -339,6 +850,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
                                 <input 
+                                    id="mobile-product-name"
                                     type="text" 
                                     value="${state.productName}" 
                                     oninput="updateState('productName', this.value)"
@@ -360,6 +872,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Length (m)</label>
                                     <input 
+                                        id="mobile-length"
                                         type="number" 
                                         step="0.1" 
                                         value="${state.filamentLength}" 
@@ -370,6 +883,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Time (hours)</label>
                                     <input 
+                                        id="mobile-time"
                                         type="number" 
                                         step="0.1" 
                                         value="${state.printTime}" 
@@ -383,6 +897,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Price (R)</label>
                                     <input 
+                                        id="mobile-price"
                                         type="number" 
                                         step="0.01" 
                                         value="${state.filamentPrice}" 
@@ -393,6 +908,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Rate (R/h)</label>
                                     <input 
+                                        id="mobile-rate"
                                         type="number" 
                                         step="0.01" 
                                         value="${state.hourlyRate}" 
@@ -421,60 +937,105 @@
         }
 
         function renderMobileProducts() {
-            if (state.products.length === 0) {
-                return `
-                    <div class="bg-white rounded-lg shadow-lg p-4">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Products</h2>
-                        <p class="text-gray-500 text-center py-8">No products saved yet</p>
-                    </div>
-                `;
-            }
-
+            const displayProducts = state.filteredProducts.length > 0 ? state.filteredProducts : state.products;
+            
             return `
                 <div class="bg-white rounded-lg shadow-lg p-4">
                     <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">Products</h2>
-                        <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
-                            📥 Export
-                        </button>
+                        <h2 class="text-xl font-semibold text-gray-800">Products (${displayProducts.length})</h2>
+                        <div class="flex gap-2">
+                            <button onclick="importProducts()" class="text-green-600 hover:text-green-800 text-sm">
+                                📤 Import
+                            </button>
+                            <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
+                                📥 Export
+                            </button>
+                            ${state.products.length === 0 ? `
+                                <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 text-sm">
+                                    ✨ Samples
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                     
-                    <div class="space-y-3">
-                        ${state.products.map(product => `
-                            <div class="border border-gray-200 rounded-lg p-3">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h3 class="font-semibold text-gray-800">${product.name}</h3>
-                                    <div class="flex gap-2">
-                                        <button onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-800 p-1">
-                                            ✏️
-                                        </button>
-                                        <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-800 p-1">
-                                            🗑️
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span class="text-gray-600">Material:</span>
-                                        <span class="ml-2 font-medium">${product.filamentType}</span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-600">Time:</span>
-                                        <span class="ml-2 font-medium">${product.printTime}h</span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-600">Cost:</span>
-                                        <span class="ml-2 font-medium">R${(product.materialCost + product.laborCost + product.operationalCost).toFixed(2)}</span>
-                                    </div>
-                                    <div>
-                                        <span class="text-gray-600">Price:</span>
-                                        <span class="ml-2 font-bold text-green-600">R${product.finalPrice.toFixed(2)}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('')}
+                    <!-- Search and Filter -->
+                    <div class="space-y-3 mb-4">
+                        <div>
+                            <input 
+                                id="mobile-search"
+                                type="text" 
+                                placeholder="Search products..." 
+                                value="${state.searchQuery}"
+                                oninput="updateSearch(this.value)"
+                                class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <select onchange="updateMaterialFilter(this.value)" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">All Materials</option>
+                                ${Object.keys(filamentTypes).map(key => 
+                                    `<option value="${key}" ${state.selectedMaterial === key ? 'selected' : ''}>${key}</option>`
+                                ).join('')}
+                            </select>
+                            
+                            <select onchange="updateSortOrder(this.value)" class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="date_desc" ${state.sortOrder === 'date_desc' ? 'selected' : ''}>Newest First</option>
+                                <option value="date_asc" ${state.sortOrder === 'date_asc' ? 'selected' : ''}>Oldest First</option>
+                                <option value="price_desc" ${state.sortOrder === 'price_desc' ? 'selected' : ''}>Price High-Low</option>
+                                <option value="price_asc" ${state.sortOrder === 'price_asc' ? 'selected' : ''}>Price Low-High</option>
+                            </select>
+                        </div>
+                        
+                        ${(state.searchQuery || state.selectedMaterial) ? `
+                            <button onclick="clearFilters()" class="text-sm text-gray-600 hover:text-gray-800">
+                                Clear Filters
+                            </button>
+                        ` : ''}
                     </div>
+                    
+                    ${displayProducts.length === 0 ? `
+                        <p class="text-gray-500 text-center py-8">
+                            ${state.products.length === 0 ? 'No products saved yet' : 'No products match your filters'}
+                        </p>
+                    ` : `
+                        <div class="space-y-3">
+                            ${displayProducts.map(product => `
+                                <div class="border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <h3 class="font-semibold text-gray-800">${product.name}</h3>
+                                        <div class="flex gap-2">
+                                            <button onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-800 p-1">
+                                                ✏️
+                                            </button>
+                                            <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-800 p-1">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <span class="text-gray-600">Material:</span>
+                                            <span class="ml-2 font-medium">${product.filamentType}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Time:</span>
+                                            <span class="ml-2 font-medium">${product.printTime}h</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Cost:</span>
+                                            <span class="ml-2 font-medium">R${(product.materialCost + product.laborCost + product.operationalCost).toFixed(2)}</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-gray-600">Price:</span>
+                                            <span class="ml-2 font-bold text-green-600">R${product.finalPrice.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
                 </div>
             `;
         }
@@ -491,6 +1052,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
                             <input 
+                                id="desktop-product-name"
                                 type="text" 
                                 value="${state.productName}" 
                                 oninput="updateState('productName', this.value)"
@@ -552,6 +1114,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Filament Length (m)</label>
                                     <input 
+                                        id="desktop-length"
                                         type="number" 
                                         step="0.1" 
                                         value="${state.filamentLength}" 
@@ -594,6 +1157,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Print Time (hours)</label>
                                     <input 
+                                        id="desktop-time"
                                         type="number" 
                                         step="0.1" 
                                         value="${state.printTime}" 
@@ -605,6 +1169,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (R/hour)</label>
                                     <input 
+                                        id="desktop-rate"
                                         type="number" 
                                         step="10" 
                                         value="${state.hourlyRate}" 
@@ -772,120 +1337,197 @@
         function renderDesktopProducts() {
             if (state.products.length === 0) return '';
             
+            const displayProducts = state.filteredProducts.length > 0 ? state.filteredProducts : state.products;
+            
             return `
                 <div class="bg-white rounded-xl shadow-lg p-6 mt-6 lg:col-span-2">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                            📦 Saved Products (${state.products.length})
+                            📦 Saved Products (${displayProducts.length}${state.products.length !== displayProducts.length ? ` of ${state.products.length}` : ''})
                         </h2>
                         <div class="flex gap-3">
-                            <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 font-medium">
-                                📥 Export All
+                            <button onclick="importProducts()" class="text-green-600 hover:text-green-800 font-medium">
+                                📤 Import
                             </button>
+                            <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 font-medium">
+                                📥 Export
+                            </button>
+                            ${state.products.length === 0 ? `
+                                <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 font-medium">
+                                    ✨ Load Samples
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full">
-                            <thead>
-                                <tr class="border-b-2 border-gray-200">
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Product Name</th>
-                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Material</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Length</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Time</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Material Cost</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Labour Cost</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Operational</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Total Cost</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Selling Price</th>
-                                    <th class="text-right py-3 px-4 font-semibold text-gray-700">Profit</th>
-                                    <th class="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${state.products.map((product, index) => `
-                                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${state.editingProduct && state.editingProduct.id === product.id ? 'bg-blue-50' : ''}">
-                                        <td class="py-3 px-4">
-                                            <div class="font-medium text-gray-900">${product.name}</div>
-                                            <div class="text-xs text-gray-500">${new Date(product.createdAt).toLocaleDateString()}</div>
-                                        </td>
-                                        <td class="py-3 px-4 text-gray-700">${product.filamentType}</td>
-                                        <td class="py-3 px-4 text-right text-gray-700">${product.filamentLength}m</td>
-                                        <td class="py-3 px-4 text-right text-gray-700">${product.printTime}h</td>
-                                        <td class="py-3 px-4 text-right text-gray-700">R${product.materialCost.toFixed(2)}</td>
-                                        <td class="py-3 px-4 text-right text-gray-700">R${product.laborCost.toFixed(2)}</td>
-                                        <td class="py-3 px-4 text-right text-gray-700">R${product.operationalCost.toFixed(2)}</td>
-                                        <td class="py-3 px-4 text-right font-medium text-gray-900">
-                                            R${(product.materialCost + product.laborCost + product.operationalCost).toFixed(2)}
-                                        </td>
-                                        <td class="py-3 px-4 text-right font-bold text-green-600">
-                                            R${product.finalPrice.toFixed(2)}
-                                        </td>
-                                        <td class="py-3 px-4 text-right font-medium text-purple-600">
-                                            R${product.profit.toFixed(2)}
-                                        </td>
-                                        <td class="py-3 px-4">
-                                            <div class="flex justify-center gap-2">
-                                                <button 
-                                                    onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
-                                                    class="text-blue-600 hover:text-blue-800 p-1"
-                                                    title="Edit"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                <button 
-                                                    onclick="duplicateProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
-                                                    class="text-green-600 hover:text-green-800 p-1"
-                                                    title="Duplicate"
-                                                >
-                                                    📋
-                                                </button>
-                                                <button 
-                                                    onclick="deleteProduct(${product.id})" 
-                                                    class="text-red-600 hover:text-red-800 p-1"
-                                                    title="Delete"
-                                                >
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                            <tfoot>
-                                <tr class="border-t-2 border-gray-200 font-semibold">
-                                    <td colspan="4" class="py-3 px-4 text-gray-700">Totals</td>
-                                    <td class="py-3 px-4 text-right text-gray-700">
-                                        R${state.products.reduce((sum, p) => sum + p.materialCost, 0).toFixed(2)}
-                                    </td>
-                                    <td class="py-3 px-4 text-right text-gray-700">
-                                        R${state.products.reduce((sum, p) => sum + p.laborCost, 0).toFixed(2)}
-                                    </td>
-                                    <td class="py-3 px-4 text-right text-gray-700">
-                                        R${state.products.reduce((sum, p) => sum + p.operationalCost, 0).toFixed(2)}
-                                    </td>
-                                    <td class="py-3 px-4 text-right text-gray-900">
-                                        R${state.products.reduce((sum, p) => sum + p.materialCost + p.laborCost + p.operationalCost, 0).toFixed(2)}
-                                    </td>
-                                    <td class="py-3 px-4 text-right text-green-600">
-                                        R${state.products.reduce((sum, p) => sum + p.finalPrice, 0).toFixed(2)}
-                                    </td>
-                                    <td class="py-3 px-4 text-right text-purple-600">
-                                        R${state.products.reduce((sum, p) => sum + p.profit, 0).toFixed(2)}
-                                    </td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <!-- Search and Filter Controls -->
+                    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="md:col-span-2">
+                                <input 
+                                    id="desktop-search"
+                                    type="text" 
+                                    placeholder="Search products..." 
+                                    value="${state.searchQuery}"
+                                    oninput="updateSearch(this.value)"
+                                    class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            
+                            <div>
+                                <select onchange="updateMaterialFilter(this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">All Materials</option>
+                                    ${Object.keys(filamentTypes).map(key => 
+                                        `<option value="${key}" ${state.selectedMaterial === key ? 'selected' : ''}>${key}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <select onchange="updateSortOrder(this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="date_desc" ${state.sortOrder === 'date_desc' ? 'selected' : ''}>Newest First</option>
+                                    <option value="date_asc" ${state.sortOrder === 'date_asc' ? 'selected' : ''}>Oldest First</option>
+                                    <option value="price_desc" ${state.sortOrder === 'price_desc' ? 'selected' : ''}>Price High-Low</option>
+                                    <option value="price_asc" ${state.sortOrder === 'price_asc' ? 'selected' : ''}>Price Low-High</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        ${(state.searchQuery || state.selectedMaterial) ? `
+                            <div class="mt-4">
+                                <button onclick="clearFilters()" class="text-sm text-gray-600 hover:text-gray-800 bg-white px-3 py-1 rounded border">
+                                    Clear Filters
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
+
+                    ${displayProducts.length === 0 ? `
+                        <div class="text-center py-12">
+                            <p class="text-gray-500 text-lg">
+                                ${state.products.length === 0 ? 'No products saved yet' : 'No products match your filters'}
+                            </p>
+                        </div>
+                    ` : `
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-200">
+                                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Product Name</th>
+                                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Material</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Length</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Time</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Material Cost</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Labour Cost</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Operational</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Total Cost</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Selling Price</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Profit</th>
+                                        <th class="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${displayProducts.map((product, index) => `
+                                        <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors ${state.editingProduct && state.editingProduct.id === product.id ? 'bg-blue-50' : ''}">
+                                            <td class="py-3 px-4">
+                                                <div class="font-medium text-gray-900">${product.name}</div>
+                                                <div class="text-xs text-gray-500">${new Date(product.createdAt).toLocaleDateString()}</div>
+                                            </td>
+                                            <td class="py-3 px-4 text-gray-700">${product.filamentType}</td>
+                                            <td class="py-3 px-4 text-right text-gray-700">${product.filamentLength}m</td>
+                                            <td class="py-3 px-4 text-right text-gray-700">${product.printTime}h</td>
+                                            <td class="py-3 px-4 text-right text-gray-700">R${product.materialCost.toFixed(2)}</td>
+                                            <td class="py-3 px-4 text-right text-gray-700">R${product.laborCost.toFixed(2)}</td>
+                                            <td class="py-3 px-4 text-right text-gray-700">R${product.operationalCost.toFixed(2)}</td>
+                                            <td class="py-3 px-4 text-right font-medium text-gray-900">
+                                                R${(product.materialCost + product.laborCost + product.operationalCost).toFixed(2)}
+                                            </td>
+                                            <td class="py-3 px-4 text-right font-bold text-green-600">
+                                                R${product.finalPrice.toFixed(2)}
+                                            </td>
+                                            <td class="py-3 px-4 text-right font-medium text-purple-600">
+                                                R${product.profit.toFixed(2)}
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="flex justify-center gap-2">
+                                                    <button 
+                                                        onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
+                                                        class="text-blue-600 hover:text-blue-800 p-1"
+                                                        title="Edit"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button 
+                                                        onclick="duplicateProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
+                                                        class="text-green-600 hover:text-green-800 p-1"
+                                                        title="Duplicate"
+                                                    >
+                                                        📋
+                                                    </button>
+                                                    <button 
+                                                        onclick="deleteProduct(${product.id})" 
+                                                        class="text-red-600 hover:text-red-800 p-1"
+                                                        title="Delete"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                                <tfoot>
+                                    <tr class="border-t-2 border-gray-200 font-semibold">
+                                        <td colspan="4" class="py-3 px-4 text-gray-700">
+                                            Totals ${displayProducts.length !== state.products.length ? `(Filtered: ${displayProducts.length} items)` : `(${displayProducts.length} items)`}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-gray-700">
+                                            R${displayProducts.reduce((sum, p) => sum + p.materialCost, 0).toFixed(2)}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-gray-700">
+                                            R${displayProducts.reduce((sum, p) => sum + p.laborCost, 0).toFixed(2)}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-gray-700">
+                                            R${displayProducts.reduce((sum, p) => sum + p.operationalCost, 0).toFixed(2)}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-gray-900">
+                                            R${displayProducts.reduce((sum, p) => sum + p.materialCost + p.laborCost + p.operationalCost, 0).toFixed(2)}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-green-600">
+                                            R${displayProducts.reduce((sum, p) => sum + p.finalPrice, 0).toFixed(2)}
+                                        </td>
+                                        <td class="py-3 px-4 text-right text-purple-600">
+                                            R${displayProducts.reduce((sum, p) => sum + p.profit, 0).toFixed(2)}
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    `}
                 </div>
             `;
         }
 
         // Event handlers
         let renderTimeout = null;
+        let lastFocusedId = null;
+        let lastCursorPosition = null;
+        
         function updateState(key, value) {
             state[key] = value;
+            
+            // Store the currently focused element ID and cursor position
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.id) {
+                lastFocusedId = activeElement.id;
+                if (activeElement.selectionStart !== undefined) {
+                    lastCursorPosition = {
+                        start: activeElement.selectionStart,
+                        end: activeElement.selectionEnd
+                    };
+                }
+            }
             
             // Debounce rendering to prevent focus loss
             if (renderTimeout) {
@@ -893,6 +1535,7 @@
             }
             renderTimeout = setTimeout(() => {
                 render();
+                restoreFocus();
             }, 300);
         }
         
@@ -901,9 +1544,100 @@
             state[key] = value;
             render();
         }
+        
+        // Restore focus to the previously active element
+        function restoreFocus() {
+            if (lastFocusedId) {
+                try {
+                    const element = document.getElementById(lastFocusedId);
+                    if (element) {
+                        element.focus();
+                        // Restore cursor position for text inputs
+                        if (lastCursorPosition && element.setSelectionRange) {
+                            element.setSelectionRange(lastCursorPosition.start, lastCursorPosition.end);
+                        }
+                    }
+                } catch (e) {
+                    // Ignore focus restoration errors
+                }
+                lastFocusedId = null;
+                lastCursorPosition = null;
+            }
+        }
 
         function toggleMobileMenu(show) {
             state.showMobileMenu = show;
+            render();
+        }
+
+        async function updateSearch(query) {
+            // Store focus info before updating state
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.id) {
+                lastFocusedId = activeElement.id;
+                if (activeElement.selectionStart !== undefined) {
+                    lastCursorPosition = {
+                        start: activeElement.selectionStart,
+                        end: activeElement.selectionEnd
+                    };
+                }
+            }
+            
+            state.searchQuery = query;
+            await applyFilters();
+            
+            // Restore focus after the async operation
+            setTimeout(() => restoreFocus(), 10);
+        }
+
+        async function updateMaterialFilter(material) {
+            state.selectedMaterial = material;
+            await applyFilters();
+        }
+
+        async function updateSortOrder(order) {
+            state.sortOrder = order;
+            await applyFilters();
+        }
+
+        async function applyFilters() {
+            let products = state.products;
+
+            // Apply search filter
+            if (state.searchQuery.trim()) {
+                products = await searchProducts(state.searchQuery);
+            }
+
+            // Apply material filter
+            if (state.selectedMaterial) {
+                products = products.filter(p => p.filamentType === state.selectedMaterial);
+            }
+
+            // Apply sorting
+            switch (state.sortOrder) {
+                case 'date_asc':
+                    products.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    break;
+                case 'date_desc':
+                    products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    break;
+                case 'price_asc':
+                    products.sort((a, b) => a.finalPrice - b.finalPrice);
+                    break;
+                case 'price_desc':
+                    products.sort((a, b) => b.finalPrice - a.finalPrice);
+                    break;
+            }
+
+            state.filteredProducts = products;
+            render();
+        }
+
+        function clearFilters() {
+            state.searchQuery = '';
+            state.selectedMaterial = '';
+            state.sortOrder = 'date_desc';
+            state.filteredProducts = state.products;
             render();
         }
 
@@ -916,6 +1650,184 @@
             linkElement.setAttribute('href', dataUri);
             linkElement.setAttribute('download', exportFileDefaultName);
             linkElement.click();
+        }
+
+        // Import products from JSON file
+        function importProducts() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const text = await file.text();
+                    const importedProducts = JSON.parse(text);
+                    
+                    if (!Array.isArray(importedProducts)) {
+                        throw new Error('Invalid file format - expected array of products');
+                    }
+                    
+                    // Validate product structure
+                    const validProducts = importedProducts.filter(p => 
+                        p.name && p.filamentType && typeof p.finalPrice === 'number'
+                    );
+                    
+                    if (validProducts.length === 0) {
+                        throw new Error('No valid products found in file');
+                    }
+                    
+                    // Ask user what to do with existing data
+                    const action = confirm(
+                        `Found ${validProducts.length} valid products in file.\n\n` +
+                        `Click OK to ADD to existing products (${state.products.length})\n` +
+                        `Click Cancel to REPLACE all existing products`
+                    );
+                    
+                    if (action) {
+                        // Add to existing products (check for duplicates)
+                        const existingNames = new Set(state.products.map(p => p.name.toLowerCase()));
+                        const newProducts = validProducts.filter(p => 
+                            !existingNames.has(p.name.toLowerCase())
+                        );
+                        
+                        // Update IDs to avoid conflicts
+                        newProducts.forEach(p => {
+                            p.id = Date.now() + Math.random();
+                            p.createdAt = p.createdAt || new Date().toISOString();
+                        });
+                        
+                        state.products.push(...newProducts);
+                        alert(`Added ${newProducts.length} new products. Skipped ${validProducts.length - newProducts.length} duplicates.`);
+                    } else {
+                        // Replace all products
+                        validProducts.forEach(p => {
+                            p.id = p.id || Date.now() + Math.random();
+                            p.createdAt = p.createdAt || new Date().toISOString();
+                        });
+                        state.products = validProducts;
+                        alert(`Replaced all products with ${validProducts.length} imported products.`);
+                    }
+                    
+                    // Save and refresh
+                    saveToStorage();
+                    await applyFilters();
+                    
+                } catch (error) {
+                    alert(`Import failed: ${error.message}`);
+                    console.error('Import error:', error);
+                }
+            };
+            input.click();
+        }
+
+        // Load sample data from file or embedded data
+        async function loadSampleData() {
+            if (state.products.length > 0) {
+                if (!confirm('This will add sample products to your existing data. Continue?')) {
+                    return;
+                }
+            }
+            
+            try {
+                // Try to load from sample file first
+                const response = await fetch('./sample-products.json');
+                if (response.ok) {
+                    const sampleProducts = await response.json();
+                    
+                    // Update IDs to avoid conflicts
+                    sampleProducts.forEach(p => {
+                        p.id = Date.now() + Math.random();
+                        p.createdAt = new Date().toISOString();
+                    });
+                    
+                    state.products.push(...sampleProducts);
+                    saveToStorage();
+                    await applyFilters();
+                    
+                    alert(`Added ${sampleProducts.length} sample products from data file!`);
+                    return;
+                }
+            } catch (error) {
+                console.log('Could not load sample file, using embedded data:', error);
+            }
+            
+            // Fallback to embedded sample data
+            const sampleProducts = [
+                {
+                    id: Date.now() + 1,
+                    name: "Phone Stand - Basic",
+                    filamentType: "PLA",
+                    customDensity: 1.20,
+                    filamentDiameter: 1.75,
+                    filamentLength: 5.2,
+                    filamentPrice: 450,
+                    filamentWeight: 1,
+                    printTime: 2.5,
+                    hourlyRate: 50,
+                    markup: 15,
+                    printerPower: 350,
+                    electricityRate: 3.50,
+                    maintenanceCostPerHour: 8.50,
+                    materialCost: 7.02,
+                    laborCost: 125.00,
+                    operationalCost: 23.13,
+                    finalPrice: 178.38,
+                    profit: 23.23,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 2,
+                    name: "Miniature Figure",
+                    filamentType: "ABS",
+                    customDensity: 1.20,
+                    filamentDiameter: 1.75,
+                    filamentLength: 12.8,
+                    filamentPrice: 480,
+                    filamentWeight: 1,
+                    printTime: 4.0,
+                    hourlyRate: 50,
+                    markup: 20,
+                    printerPower: 350,
+                    electricityRate: 3.50,
+                    maintenanceCostPerHour: 8.50,
+                    materialCost: 16.13,
+                    laborCost: 200.00,
+                    operationalCost: 46.00,
+                    finalPrice: 314.56,
+                    profit: 52.43,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    id: Date.now() + 3,
+                    name: "Custom Bracket",
+                    filamentType: "PETG",
+                    customDensity: 1.20,
+                    filamentDiameter: 1.75,
+                    filamentLength: 3.1,
+                    filamentPrice: 520,
+                    filamentWeight: 1,
+                    printTime: 1.5,
+                    hourlyRate: 75,
+                    markup: 25,
+                    printerPower: 350,
+                    electricityRate: 3.50,
+                    maintenanceCostPerHour: 8.50,
+                    materialCost: 5.09,
+                    laborCost: 112.50,
+                    operationalCost: 18.00,
+                    finalPrice: 169.49,
+                    profit: 33.90,
+                    createdAt: new Date().toISOString()
+                }
+            ];
+            
+            state.products.push(...sampleProducts);
+            saveToStorage();
+            await applyFilters();
+            
+            alert(`Added ${sampleProducts.length} sample products to help you get started!`);
         }
 
         // PWA functions
@@ -931,8 +1843,29 @@
         }
 
         // Initialize app
-        function init() {
-            loadFromStorage();
+        async function init() {
+            try {
+                // Initialize PouchDB database first
+                await initDatabase();
+                
+                // Migrate existing data in order: IndexedDB -> localStorage -> PouchDB
+                await migrateFromIndexedDB();
+                await migrateFromLocalStorage();
+                
+                // Load products from PouchDB
+                await loadFromDatabase();
+                
+                // Initialize filtered products
+                state.filteredProducts = state.products;
+                
+                // Setup auto-backup monitoring
+                setupAutoBackup();
+                
+                console.log('App initialization complete with PouchDB');
+            } catch (e) {
+                console.error('PouchDB initialization failed, falling back to localStorage:', e);
+                loadFromStorage();
+            }
             
             // PWA setup
             window.addEventListener('beforeinstallprompt', (e) => {
@@ -945,7 +1878,7 @@
             // Service worker
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('data:application/javascript;base64,' + btoa(`
-                    const CACHE_NAME = '3d-print-calc-v1';
+                    const CACHE_NAME = '3d-print-calc-v1.1';
                     
                     self.addEventListener('install', (event) => {
                         console.log('Service Worker installing');

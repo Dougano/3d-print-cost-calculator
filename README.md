@@ -9,17 +9,46 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 ## 📱 Features
 
 ### 💰 Cost Calculation
-- **Material Costs** - Calculate filament usage and costs
+- **Material Costs** - Calculate filament usage and costs based on density
 - **Labour Costs** - Hourly rate calculations
 - **Operational Costs** - Power consumption and maintenance
 - **Profit Margins** - Configurable markup percentages
 - **Final Pricing** - Complete selling price breakdown
+
+### 🔍 Advanced Search & Filtering
+- **Real-time Search** - Search products by name as you type
+- **Material Filtering** - Filter by filament type (PLA, ABS, PETG, etc.)
+- **Smart Sorting** - Sort by date, price (high-low, low-high)
+- **Visual Indicators** - Shows filtered vs total product counts
+- **Quick Clear** - One-click filter reset
+
+### 🗄️ Enterprise-Grade Data Management
+- **PouchDB Integration** - Powerful NoSQL database with indexing
+- **Advanced Querying** - Fast searches across large product collections
+- **Data Migration** - Seamless upgrade from localStorage/IndexedDB
+- **Multiple Backups** - localStorage + sessionStorage fallbacks
+- **Import/Export** - JSON file-based data exchange
+- **Sample Data** - Pre-loaded examples to get started quickly
+
+### 📁 File-Based Persistence
+- **JSON Database** - Human-readable data files
+- **Import Products** - Load data from JSON files
+- **Export Collections** - Save timestamped backups
+- **Cross-Device Sharing** - Email or cloud-share product collections
+- **Version Control** - Sample data tracked in Git repository
+
+### 🔄 Optional Cloud Sync
+- **CouchDB Support** - Real-time sync across devices
+- **Live Replication** - Automatic bidirectional sync
+- **Conflict Resolution** - Built-in conflict handling
+- **Offline-First** - Works with or without internet
 
 ### 🖥️ Desktop & Mobile Views
 - **Responsive Design** - Optimized layouts for all screen sizes
 - **Desktop View** - Side-by-side calculator and results panels
 - **Mobile View** - Tabbed interface for calculator and products
 - **Touch Friendly** - Large buttons and input fields on mobile
+- **Focus Management** - Smooth typing without input interruption
 
 ### 🇿🇦 South African Optimized
 - **Currency**: South African Rand (ZAR)
@@ -32,7 +61,7 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Install on Mobile** - Add to home screen like a native app
 - **Offline Functionality** - Works without internet connection
 - **Mobile Optimized** - Touch-friendly interface
-- **Responsive Design** - Works on all screen sizes
+- **Service Worker** - Enhanced caching and performance
 
 ### 🔧 Material Support
 - **PLA** (Polylactic Acid) - 1.27 g/cm³
@@ -47,9 +76,10 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Save Products** - Store calculations for future reference
 - **Edit Products** - Modify existing product calculations
 - **Duplicate Products** - Copy existing products as templates
-- **Export Data** - Download product database as JSON
-- **Local Storage** - All data saved on your device
-- **Product Table** - Desktop view with sortable columns and totals
+- **Bulk Operations** - Import/export entire product collections
+- **Search & Filter** - Find products quickly in large databases
+- **Smart Storage** - Multi-layer persistence with automatic fallbacks
+- **Product Statistics** - Track totals, averages, and material breakdowns
 
 ## 🛠️ Usage
 
@@ -83,23 +113,32 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 ### Built With
 - **Vanilla JavaScript** - No framework dependencies
 - **Single HTML File** - Entire app in one file
+- **PouchDB** - Client-side NoSQL database with sync capabilities
 - **Tailwind CSS** - Styling and responsive design
-- **Service Worker** - Offline functionality
-- **Web App Manifest** - PWA installation
-- **Local Storage** - Data persistence
+- **Service Worker** - Offline functionality and caching
+- **Web App Manifest** - PWA installation support
+- **Multi-layer Storage** - PouchDB → localStorage → sessionStorage fallbacks
+
+### Database Features
+- **IndexedDB Backend** - Persistent, structured storage
+- **Automatic Indexing** - Optimized queries on name, date, material, price
+- **Bulk Operations** - Efficient batch saving and loading
+- **Data Migration** - Seamless upgrades from older storage methods
+- **Conflict-free Sync** - CouchDB-compatible replication protocol
 
 ### Browser Support
-- ✅ Chrome (Android/Desktop)
-- ✅ Safari (iOS/macOS)
-- ✅ Firefox (Android/Desktop)
-- ✅ Edge (Desktop/Mobile)
+- ✅ Chrome (Android/Desktop) - Full PouchDB support
+- ✅ Safari (iOS/macOS) - IndexedDB + localStorage fallback
+- ✅ Firefox (Android/Desktop) - Full PouchDB support
+- ✅ Edge (Desktop/Mobile) - Full PouchDB support
 
 ### File Structure
 ```
 3d-print-cost-calulator/
-├── index.html          # Main application file
-├── manifest.json       # PWA manifest
-└── README.md           # This file
+├── index.html              # Main application (includes PouchDB integration)
+├── manifest.json           # PWA manifest
+├── sample-products.json    # Sample data for new users
+└── README.md               # This documentation
 ```
 
 ## 🚀 Deployment
@@ -115,6 +154,12 @@ This app is deployed using GitHub Pages and automatically updates when changes a
    # or
    npx serve .
    ```
+
+### Data Management
+- **Automatic Backups** - Regular localStorage backups
+- **Import/Export** - JSON file format for data portability
+- **Cloud Sync Setup** - Optional CouchDB configuration
+- **Sample Data** - Load pre-configured products for testing
 
 ## 📊 Default Values (South African Market)
 
@@ -150,7 +195,19 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v1.1.0 (Current)
+### v2.0.0 (Current) - Enterprise Edition
+- ✅ **PouchDB Integration** - Advanced NoSQL database with indexing
+- ✅ **Search & Filtering** - Real-time search, material filters, smart sorting
+- ✅ **Import/Export** - JSON file-based data exchange
+- ✅ **Sample Data** - Pre-loaded product examples
+- ✅ **Data Migration** - Automatic upgrade from localStorage/IndexedDB
+- ✅ **Focus Management** - Smooth typing without input interruption
+- ✅ **Multi-layer Storage** - PouchDB + localStorage + sessionStorage fallbacks
+- ✅ **Cloud Sync Ready** - Optional CouchDB integration
+- ✅ **Bulk Operations** - Efficient batch data handling
+- ✅ **Product Statistics** - Advanced analytics and reporting
+
+### v1.1.0
 - ✅ Desktop view implementation
 - ✅ Responsive grid layouts
 - ✅ Product duplication feature
@@ -169,13 +226,14 @@ For issues, questions, or feature requests:
 
 ## 🎯 Future Features
 
-- [ ] Material database expansion
-- [ ] Print quality settings impact
-- [ ] Multiple currency support
-- [ ] Business analytics dashboard
-- [ ] Cloud sync (optional)
-- [ ] Print time estimation
-- [ ] Waste factor calculations
+- [ ] **Enhanced Analytics** - Profit margin analysis, material usage trends
+- [ ] **Multi-Currency Support** - USD, EUR, GBP conversion rates
+- [ ] **Print Quality Impact** - Layer height and infill cost calculations
+- [ ] **Waste Factor** - Account for failed prints and material waste
+- [ ] **Print Time Estimation** - AI-powered time predictions
+- [ ] **Material Database** - Expanded filament types and suppliers
+- [ ] **Business Dashboard** - Revenue tracking and customer management
+- [ ] **Team Collaboration** - Multi-user workspaces with shared databases
 
 ## 📱 Screenshots
 
