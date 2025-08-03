@@ -15,12 +15,18 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Profit Margins** - Configurable markup percentages
 - **Final Pricing** - Complete selling price breakdown
 
+### 🖥️ Desktop & Mobile Views
+- **Responsive Design** - Optimized layouts for all screen sizes
+- **Desktop View** - Side-by-side calculator and results panels
+- **Mobile View** - Tabbed interface for calculator and products
+- **Touch Friendly** - Large buttons and input fields on mobile
+
 ### 🇿🇦 South African Optimized
 - **Currency**: South African Rand (ZAR)
 - **Electricity Rate**: R3.50/kWh (average Eskom rate)
 - **Default Pricing**: Realistic SA market rates
 - **Filament Prices**: R450 for 1kg spool (typical SA pricing)
-- **Labour Rate**: R250/hour default
+- **Labour Rate**: R0/hour default (customizable)
 
 ### 📱 Progressive Web App (PWA)
 - **Install on Mobile** - Add to home screen like a native app
@@ -40,8 +46,10 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 ### 📊 Product Management
 - **Save Products** - Store calculations for future reference
 - **Edit Products** - Modify existing product calculations
+- **Duplicate Products** - Copy existing products as templates
 - **Export Data** - Download product database as JSON
 - **Local Storage** - All data saved on your device
+- **Product Table** - Desktop view with sortable columns and totals
 
 ## 🛠️ Usage
 
@@ -58,10 +66,11 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 7. **Save product** for future reference
 
 ### Advanced Settings
-- **Printer Power**: Wattage consumption (default: 250W)
+- **Printer Power**: Wattage consumption (default: 1W)
 - **Electricity Rate**: Cost per kWh (default: R3.50)
 - **Maintenance Cost**: Hourly wear-and-tear (default: R8.50/hour)
 - **Custom Density**: For specialty filaments
+- **Filament Diameter**: Configurable diameter (default: 1.75mm)
 
 ### Mobile Installation
 1. Open the app in your mobile browser
@@ -72,7 +81,8 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 ## 💻 Technical Details
 
 ### Built With
-- **React 18** - User interface
+- **Vanilla JavaScript** - No framework dependencies
+- **Single HTML File** - Entire app in one file
 - **Tailwind CSS** - Styling and responsive design
 - **Service Worker** - Offline functionality
 - **Web App Manifest** - PWA installation
@@ -111,11 +121,13 @@ This app is deployed using GitHub Pages and automatically updates when changes a
 | Setting | Default Value | Notes |
 |---------|---------------|-------|
 | Filament Price | R450 | 1kg PLA spool |
-| Labour Rate | R250/hour | Reasonable SA rate |
+| Filament Length | 1m | Starting value |
+| Labour Rate | R0/hour | Customizable based on needs |
 | Electricity | R3.50/kWh | Average Eskom rate |
 | Maintenance | R8.50/hour | Printer wear-and-tear |
-| Printer Power | 250W | Typical 3D printer consumption |
-| Markup | 50% | Starting profit margin |
+| Printer Power | 1W | Low power consumption |
+| Markup | 15% | Conservative profit margin |
+| Print Time | 2 hours | Default print duration |
 
 ## 🤝 Contributing
 
@@ -138,7 +150,15 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v1.0.0 (Current)
+### v1.1.0 (Current)
+- ✅ Desktop view implementation
+- ✅ Responsive grid layouts
+- ✅ Product duplication feature
+- ✅ Improved input handling with debouncing
+- ✅ Removed editable cost overrides for simplicity
+- ✅ Updated default values for better UX
+
+### v1.0.0
 - ✅ Initial release
 - ✅ PWA functionality
 - ✅ South African localization
