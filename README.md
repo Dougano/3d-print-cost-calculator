@@ -31,9 +31,10 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Sample Data** - Pre-loaded examples to get started quickly
 
 ### 📁 File-Based Persistence
-- **JSON Database** - Human-readable data files
-- **Import Products** - Load data from JSON files
-- **Export Collections** - Save timestamped backups
+- **JSON Database** - Human-readable data files with metadata
+- **Auto-Export** - Automatic file downloads after every 5 changes
+- **Manual Export** - On-demand timestamped backups
+- **Import Products** - Load data from JSON files with validation
 - **Cross-Device Sharing** - Email or cloud-share product collections
 - **Version Control** - Sample data tracked in Git repository
 
@@ -76,10 +77,12 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Save Products** - Store calculations for future reference
 - **Edit Products** - Modify existing product calculations
 - **Duplicate Products** - Copy existing products as templates
+- **Auto-Export** - Automatic file downloads on product changes
 - **Bulk Operations** - Import/export entire product collections
 - **Search & Filter** - Find products quickly in large databases
 - **Smart Storage** - Multi-layer persistence with automatic fallbacks
 - **Product Statistics** - Track totals, averages, and material breakdowns
+- **Notifications** - Visual feedback for auto-exports and operations
 
 ## 🛠️ Usage
 
@@ -156,10 +159,12 @@ This app is deployed using GitHub Pages and automatically updates when changes a
    ```
 
 ### Data Management
-- **Automatic Backups** - Regular localStorage backups
+- **Auto-Export** - Automatic file downloads after every 5 product changes
+- **Manual Export** - On-demand JSON backups with timestamps
 - **Import/Export** - JSON file format for data portability
 - **Cloud Sync Setup** - Optional CouchDB configuration
 - **Sample Data** - Load pre-configured products for testing
+- **Notifications** - Visual feedback for all export operations
 
 ## 📊 Default Values (South African Market)
 
@@ -195,7 +200,14 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v2.0.0 (Current) - Enterprise Edition
+### v2.1.0 (Current) - Auto-Export Edition
+- ✅ **Auto-Export System** - Automatic file downloads after every 5 changes
+- ✅ **Smart Notifications** - Visual feedback for auto-exports and operations
+- ✅ **Enhanced Export Format** - JSON files with metadata and versioning
+- ✅ **Toggle Controls** - Easy enable/disable auto-export functionality
+- ✅ **Persistent Preferences** - Auto-export settings saved across sessions
+
+### v2.0.0 - Enterprise Edition
 - ✅ **PouchDB Integration** - Advanced NoSQL database with indexing
 - ✅ **Search & Filtering** - Real-time search, material filters, smart sorting
 - ✅ **Import/Export** - JSON file-based data exchange

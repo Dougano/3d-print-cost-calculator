@@ -56,6 +56,14 @@
             sortOrder: 'date_desc', // date_desc, date_asc, price_desc, price_asc
             filteredProducts: [],
             
+            // Auto-export settings
+            autoExportEnabled: true,
+            lastAutoExport: null,
+            autoExportThreshold: 5, // Auto-export after 5 changes
+            
+            // Notifications
+            notifications: [],
+            
             // Cost overrides (removed)
         };
 
@@ -156,6 +164,7 @@
 
             state.productName = '';
             saveToStorage();
+            triggerAutoExport();
             await applyFilters();
         }
 
@@ -182,6 +191,7 @@
             if (confirm('Are you sure you want to delete this product?')) {
                 state.products = state.products.filter(p => p.id !== id);
                 saveToStorage();
+                triggerAutoExport();
                 await applyFilters();
             }
         }
@@ -195,6 +205,7 @@
             };
             state.products.push(duplicatedProduct);
             saveToStorage();
+            triggerAutoExport();
             await applyFilters();
         }
 
@@ -749,6 +760,28 @@
             
             app.innerHTML = `
                 <div class="max-w-7xl mx-auto p-2 md:p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+                    <!-- Notifications -->
+                    ${state.notifications.length > 0 ? `
+                        <div class="fixed top-4 right-4 z-50 space-y-2">
+                            ${state.notifications.map(notification => `
+                                <div class="bg-white border-l-4 ${
+                                    notification.type === 'success' ? 'border-green-500' :
+                                    notification.type === 'error' ? 'border-red-500' :
+                                    notification.type === 'warning' ? 'border-yellow-500' :
+                                    'border-blue-500'
+                                } p-4 rounded-lg shadow-lg max-w-sm">
+                                    <div class="flex justify-between items-start">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            ${notification.message}
+                                        </div>
+                                        <button onclick="dismissNotification(${notification.id})" class="ml-2 text-gray-400 hover:text-gray-600">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                     ${state.showInstallButton ? `
                         <div class="bg-blue-600 text-white p-4 rounded-lg mb-4 flex items-center justify-between">
                             <div class="flex items-center gap-3">
@@ -949,6 +982,9 @@
                             </button>
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
                                 📥 Export
+                            </button>
+                            <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 text-sm" title="${state.autoExportEnabled ? 'Auto-export ON' : 'Auto-export OFF'}">
+                                ${state.autoExportEnabled ? '🔄' : '⏸️'} Auto
                             </button>
                             ${state.products.length === 0 ? `
                                 <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 text-sm">
@@ -1352,6 +1388,9 @@
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 font-medium">
                                 📥 Export
                             </button>
+                            <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 font-medium" title="${state.autoExportEnabled ? 'Auto-export enabled - files auto-download' : 'Auto-export disabled - manual export only'}">
+                                ${state.autoExportEnabled ? '🔄 Auto-Export ON' : '⏸️ Auto-Export OFF'}
+                            </button>
                             ${state.products.length === 0 ? `
                                 <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 font-medium">
                                     ✨ Load Samples
@@ -1641,15 +1680,107 @@
             render();
         }
 
-        function exportProducts() {
-            const dataStr = JSON.stringify(state.products, null, 2);
+        function exportProducts(isAutoExport = false) {
+            const timestamp = new Date().toISOString();
+            const dateStr = timestamp.split('T')[0];
+            const timeStr = timestamp.split('T')[1].substring(0, 8).replace(/:/g, '-');
+            
+            const prefix = isAutoExport ? 'auto-backup' : '3d-print-products';
+            const exportFileDefaultName = `${prefix}-${dateStr}-${timeStr}.json`;
+            
+            const exportData = {
+                metadata: {
+                    exportDate: timestamp,
+                    version: "2.0.0",
+                    productCount: state.products.length,
+                    autoExport: isAutoExport
+                },
+                products: state.products
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            const exportFileDefaultName = `3d-print-products-${new Date().toISOString().split('T')[0]}.json`;
             
             const linkElement = document.createElement('a');
             linkElement.setAttribute('href', dataUri);
             linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.style.display = 'none';
+            document.body.appendChild(linkElement);
             linkElement.click();
+            document.body.removeChild(linkElement);
+            
+            if (isAutoExport) {
+                state.lastAutoExport = timestamp;
+                console.log(`Auto-exported ${state.products.length} products to ${exportFileDefaultName}`);
+                showNotification(`📁 Auto-exported ${state.products.length} products`, 'success');
+            }
+        }
+
+        // Auto-export functionality
+        let changesSinceLastExport = 0;
+
+        function triggerAutoExport() {
+            if (!state.autoExportEnabled) return;
+            
+            changesSinceLastExport++;
+            
+            // Auto-export conditions
+            const shouldAutoExport = (
+                changesSinceLastExport >= state.autoExportThreshold ||
+                (state.products.length > 0 && state.products.length % 10 === 0) // Every 10 products
+            );
+            
+            if (shouldAutoExport) {
+                setTimeout(() => {
+                    exportProducts(true);
+                    changesSinceLastExport = 0;
+                }, 1000); // Delay to ensure all operations complete
+            }
+        }
+
+        function toggleAutoExport() {
+            state.autoExportEnabled = !state.autoExportEnabled;
+            
+            // Save preference to localStorage
+            try {
+                localStorage.setItem('autoExportEnabled', state.autoExportEnabled.toString());
+            } catch (e) {
+                console.warn('Could not save auto-export preference');
+            }
+            
+            render();
+            
+            if (state.autoExportEnabled) {
+                console.log('Auto-export enabled. Will export after every 5 changes or every 10 products.');
+                showNotification('🔄 Auto-export enabled', 'info');
+            } else {
+                console.log('Auto-export disabled.');
+                showNotification('⏸️ Auto-export disabled', 'info');
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info', duration = 3000) {
+            const notification = {
+                id: Date.now(),
+                message,
+                type, // 'success', 'error', 'warning', 'info'
+                timestamp: new Date().toISOString()
+            };
+            
+            state.notifications.push(notification);
+            render();
+            
+            // Auto-remove notification after duration
+            setTimeout(() => {
+                state.notifications = state.notifications.filter(n => n.id !== notification.id);
+                render();
+            }, duration);
+        }
+
+        function dismissNotification(id) {
+            state.notifications = state.notifications.filter(n => n.id !== id);
+            render();
         }
 
         // Import products from JSON file
@@ -1663,10 +1794,19 @@
                 
                 try {
                     const text = await file.text();
-                    const importedProducts = JSON.parse(text);
+                    const importedData = JSON.parse(text);
                     
-                    if (!Array.isArray(importedProducts)) {
-                        throw new Error('Invalid file format - expected array of products');
+                    // Handle both old format (array) and new format (object with metadata)
+                    let importedProducts;
+                    if (Array.isArray(importedData)) {
+                        // Old format - direct array of products
+                        importedProducts = importedData;
+                    } else if (importedData.products && Array.isArray(importedData.products)) {
+                        // New format - object with metadata and products array
+                        importedProducts = importedData.products;
+                        console.log('Import metadata:', importedData.metadata);
+                    } else {
+                        throw new Error('Invalid file format - expected array of products or object with products array');
                     }
                     
                     // Validate product structure
@@ -1712,6 +1852,7 @@
                     
                     // Save and refresh
                     saveToStorage();
+                    triggerAutoExport();
                     await applyFilters();
                     
                 } catch (error) {
@@ -1744,6 +1885,7 @@
                     
                     state.products.push(...sampleProducts);
                     saveToStorage();
+                    triggerAutoExport();
                     await applyFilters();
                     
                     alert(`Added ${sampleProducts.length} sample products from data file!`);
@@ -1825,6 +1967,7 @@
             
             state.products.push(...sampleProducts);
             saveToStorage();
+            triggerAutoExport();
             await applyFilters();
             
             alert(`Added ${sampleProducts.length} sample products to help you get started!`);
@@ -1858,10 +2001,20 @@
                 // Initialize filtered products
                 state.filteredProducts = state.products;
                 
+                // Load auto-export preference
+                try {
+                    const autoExportPref = localStorage.getItem('autoExportEnabled');
+                    if (autoExportPref !== null) {
+                        state.autoExportEnabled = autoExportPref === 'true';
+                    }
+                } catch (e) {
+                    console.warn('Could not load auto-export preference');
+                }
+                
                 // Setup auto-backup monitoring
                 setupAutoBackup();
                 
-                console.log('App initialization complete with PouchDB');
+                console.log(`App initialization complete with PouchDB. Auto-export: ${state.autoExportEnabled ? 'enabled' : 'disabled'}`);
             } catch (e) {
                 console.error('PouchDB initialization failed, falling back to localStorage:', e);
                 loadFromStorage();
