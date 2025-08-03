@@ -203,7 +203,12 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v2.2.0 (Current) - Database Edition
+### v2.2.1 (Current) - Bug Fix Edition
+- 🐛 **Fixed Material Cost Calculation** - Corrected volume calculation units mismatch
+- 🐛 **Fixed Decimal Input Issues** - Preserved partial decimal values during typing
+- ✅ **Improved Input Handling** - Better focus restoration and cursor positioning
+
+### v2.2.0 - Database Edition
 - ✅ **JSON Database File** - Central products.json database with 12 sample products
 - ✅ **Auto-Merge System** - Automatically loads database products on startup
 - ✅ **Database Export** - Export current collection as products.json format

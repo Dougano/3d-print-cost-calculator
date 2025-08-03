@@ -84,8 +84,9 @@
         }
 
         function calculateVolume() {
-            const radius = state.filamentDiameter / 2;
-            return Math.PI * Math.pow(radius, 2) * state.filamentLength / 1000;
+            const radius = state.filamentDiameter / 2; // radius in mm
+            const lengthInMm = state.filamentLength * 1000; // convert meters to mm
+            return Math.PI * Math.pow(radius, 2) * lengthInMm / 1000; // volume in cm³
         }
 
         function calculateMaterialCost() {
@@ -1635,13 +1636,19 @@
             }
             
             // Parse to number, fallback to 0 for empty or invalid values
-            const numericValue = cleanValue === '' || cleanValue === '.' || cleanValue === '-' ? 
+            // Allow partial decimal inputs like "2." to be preserved
+            const numericValue = cleanValue === '' || cleanValue === '-' ? 
                 0 : (parseFloat(cleanValue) || 0);
             
             // Ensure non-negative for most fields (except hourlyRate which can be 0)
             const finalValue = numericValue < 0 ? 0 : numericValue;
             
             state[key] = finalValue;
+            
+            // Store the display value to preserve partial decimals during typing
+            if (activeElement && activeElement.tagName === 'INPUT') {
+                activeElement.dataset.userValue = cleanValue;
+            }
             
             // Debounce rendering
             if (renderTimeout) {
@@ -1659,6 +1666,12 @@
                 try {
                     const element = document.getElementById(lastFocusedId);
                     if (element) {
+                        // Restore user's partial input value if it exists
+                        if (element.dataset.userValue && element.tagName === 'INPUT') {
+                            element.value = element.dataset.userValue;
+                            delete element.dataset.userValue;
+                        }
+                        
                         element.focus();
                         // Restore cursor position for text inputs
                         if (lastCursorPosition && element.setSelectionRange) {
