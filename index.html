@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#6366f1">
     <meta name="description" content="3D Printing Business Cost Calculator for South Africa">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,9 +14,176 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
     <style>
+        :root {
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --gradient-warning: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            --gradient-surface: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --shadow-soft: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            --shadow-medium: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-strong: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --border-radius: 16px;
+            --border-radius-small: 12px;
+        }
+        
         body { 
             margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Smooth transitions */
+        * {
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        /* Glass morphism effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Modern input styling */
+        .modern-input {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        
+        .modern-input:focus {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        /* Modern button styling */
+        .modern-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-soft);
+        }
+        
+        .modern-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-medium);
+            background: linear-gradient(135deg, #5855f5 0%, #7c3aed 100%);
+        }
+        
+        .modern-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Card styling */
+        .modern-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: var(--shadow-soft);
+            transition: all 0.3s ease;
+        }
+        
+        .modern-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-medium);
+        }
+        
+        /* Floating animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* Pulse animation */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        /* Gradient animation */
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .gradient-animation {
+            background-size: 200% 200%;
+            animation: gradient-shift 3s ease infinite;
+        }
+        
+        /* Glow effect */
+        .glow {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.6),
+                        0 0 40px rgba(99, 102, 241, 0.4),
+                        0 0 60px rgba(99, 102, 241, 0.2);
+        }
+        
+        /* Neumorphism effect */
+        .neumorphic {
+            background: linear-gradient(145deg, #f0f0f0, #cacaca);
+            box-shadow: 20px 20px 60px #bebebe,
+                        -20px -20px 60px #ffffff;
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
+        }
+        
+        /* Shimmer effect */
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+            background-size: 1000px 100%;
+            animation: shimmer 2s infinite;
         }
     </style>
 </head>
@@ -56,13 +223,12 @@
             sortOrder: 'date_desc', // date_desc, date_asc, price_desc, price_asc
             filteredProducts: [],
             
-            // Auto-export settings
-            autoExportEnabled: true,
-            lastAutoExport: null,
-            autoExportThreshold: 5, // Auto-export after 5 changes
+            // Sync settings
+            syncEnabled: true,
+            lastSync: null,
             
             // Notifications
-            notifications: [],
+            notifications: []
             
             // Cost overrides (removed)
         };
@@ -165,7 +331,7 @@
 
             state.productName = '';
             saveToStorage();
-            triggerAutoExport();
+            syncToProductsFile();
             await applyFilters();
         }
 
@@ -192,7 +358,7 @@
             if (confirm('Are you sure you want to delete this product?')) {
                 state.products = state.products.filter(p => p.id !== id);
                 saveToStorage();
-                triggerAutoExport();
+                syncToProductsFile();
                 await applyFilters();
             }
         }
@@ -206,7 +372,7 @@
             };
             state.products.push(duplicatedProduct);
             saveToStorage();
-            triggerAutoExport();
+            syncToProductsFile();
             await applyFilters();
         }
 
@@ -760,22 +926,23 @@
             const app = document.getElementById('app');
             
             app.innerHTML = `
-                <div class="max-w-7xl mx-auto p-2 md:p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+                <div class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+                    <div class="max-w-7xl mx-auto p-3 md:p-8">
                     <!-- Notifications -->
                     ${state.notifications.length > 0 ? `
-                        <div class="fixed top-4 right-4 z-50 space-y-2">
+                        <div class="fixed top-6 right-6 z-50 space-y-3">
                             ${state.notifications.map(notification => `
-                                <div class="bg-white border-l-4 ${
-                                    notification.type === 'success' ? 'border-green-500' :
-                                    notification.type === 'error' ? 'border-red-500' :
-                                    notification.type === 'warning' ? 'border-yellow-500' :
-                                    'border-blue-500'
-                                } p-4 rounded-lg shadow-lg max-w-sm">
+                                <div class="modern-card ${
+                                    notification.type === 'success' ? 'border-l-4 border-emerald-400' :
+                                    notification.type === 'error' ? 'border-l-4 border-red-400' :
+                                    notification.type === 'warning' ? 'border-l-4 border-amber-400' :
+                                    'border-l-4 border-blue-400'
+                                } p-4 rounded-xl max-w-sm transform transition-all duration-500 ease-out">
                                     <div class="flex justify-between items-start">
-                                        <div class="text-sm font-medium text-gray-900">
+                                        <div class="text-sm font-medium text-gray-800">
                                             ${notification.message}
                                         </div>
-                                        <button onclick="dismissNotification(${notification.id})" class="ml-2 text-gray-400 hover:text-gray-600">
+                                        <button onclick="dismissNotification(${notification.id})" class="ml-2 text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors">
                                             ✕
                                         </button>
                                     </div>
@@ -784,38 +951,62 @@
                         </div>
                     ` : ''}
                     ${state.showInstallButton ? `
-                        <div class="bg-blue-600 text-white p-4 rounded-lg mb-4 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <span>📱</span>
-                                <div>
-                                    <h3 class="font-semibold">Install App</h3>
-                                    <p class="text-sm opacity-90">Add to home screen for quick access</p>
+                        <div class="modern-card bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-2xl mb-6 border-0">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="bg-white/20 rounded-full p-3">
+                                        <span class="text-2xl">📱</span>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-lg">Install PrintCalc</h3>
+                                        <p class="text-sm opacity-90">Add to home screen for quick access</p>
+                                    </div>
                                 </div>
+                                <button onclick="installApp()" class="bg-white text-indigo-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-300 transform hover:scale-105">
+                                    Install
+                                </button>
                             </div>
-                            <button onclick="installApp()" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100">
-                                Install
-                            </button>
                         </div>
                     ` : ''}
 
                     <!-- Header -->
-                    <div class="mb-6 text-center">
-                        <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
-                            🧮 3D Print Calculator
-                        </h1>
-                        <p class="text-gray-600 text-sm md:text-base">Calculate costs and manage your 3D printing business</p>
+                    <div class="mb-8 text-center fade-in">
+                        <div class="modern-card bg-white/10 backdrop-blur-lg border-white/20 p-8 rounded-3xl gradient-animation" style="background: linear-gradient(-45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));">
+                            <h1 class="text-3xl md:text-5xl font-bold text-white mb-4 flex items-center justify-center gap-4">
+                                <span class="text-4xl md:text-6xl float-animation">🧮</span>
+                                3D Print Calculator
+                            </h1>
+                            <p class="text-white/90 text-base md:text-lg font-medium">Calculate costs and manage your 3D printing business in South Africa</p>
+                            <div class="mt-6 flex justify-center gap-4">
+                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
+                                    <span class="mr-2">🇿🇦</span> ZAR Currency
+                                </div>
+                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
+                                    <span class="mr-2">⚡</span> R3.50/kWh
+                                </div>
+                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
+                                    <span class="mr-2">🔧</span> PWA Enabled
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Mobile Layout -->
                     <div class="block lg:hidden">
                         <!-- Mobile Navigation -->
-                        <div class="bg-white rounded-lg shadow-lg mb-4">
-                            <div class="flex border-b">
-                                <button onclick="toggleMobileMenu(false)" class="flex-1 py-3 px-4 text-center font-medium ${!state.showMobileMenu ? 'bg-blue-600 text-white' : 'text-gray-600'}">
-                                    Calculator
+                        <div class="modern-card p-2 rounded-2xl mb-6">
+                            <div class="flex bg-gray-100 rounded-xl p-1">
+                                <button onclick="toggleMobileMenu(false)" class="flex-1 py-4 px-4 text-center font-semibold rounded-lg transition-all duration-300 ${!state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <span>🧮</span>
+                                        Calculator
+                                    </div>
                                 </button>
-                                <button onclick="toggleMobileMenu(true)" class="flex-1 py-3 px-4 text-center font-medium ${state.showMobileMenu ? 'bg-blue-600 text-white' : 'text-gray-600'}">
-                                    Products (${state.products.length})
+                                <button onclick="toggleMobileMenu(true)" class="flex-1 py-4 px-4 text-center font-semibold rounded-lg transition-all duration-300 ${state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <span>📦</span>
+                                        Products (${state.products.length})
+                                    </div>
                                 </button>
                             </div>
                         </div>
@@ -839,133 +1030,148 @@
 
         function renderMobileCalculator() {
             return `
-                <div class="space-y-4">
+                <div class="space-y-6">
                     <!-- Cost Breakdown -->
-                    <div class="bg-white rounded-lg shadow-lg p-4">
-                        <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2 mb-4">
-                            💰 Cost Breakdown
+                    <div class="modern-card rounded-2xl p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-3 mb-6">
+                            <span class="text-3xl">💰</span>
+                            Cost Breakdown
                         </h2>
 
-                        <div class="grid grid-cols-2 gap-3 text-sm">
-                            <div class="bg-blue-50 rounded-lg p-3">
-                                <h3 class="font-semibold text-blue-800 mb-1">Material</h3>
-                                <div class="text-lg font-bold">R${calculateMaterialCost().toFixed(2)}</div>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                                    <span>🧱</span> Material
+                                </h3>
+                                <div class="text-xl font-bold text-blue-900">R${calculateMaterialCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-green-50 rounded-lg p-3">
-                                <h3 class="font-semibold text-green-800 mb-1">Labour</h3>
-                                <div class="text-lg font-bold">R${calculateLaborCost().toFixed(2)}</div>
+                            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-emerald-800 mb-2 flex items-center gap-2">
+                                    <span>👨‍💼</span> Labour
+                                </h3>
+                                <div class="text-xl font-bold text-emerald-900">R${calculateLaborCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-yellow-50 rounded-lg p-3">
-                                <h3 class="font-semibold text-yellow-800 mb-1">Operational</h3>
-                                <div class="text-lg font-bold">R${calculateOperationalCost().toFixed(2)}</div>
+                            <div class="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-amber-800 mb-2 flex items-center gap-2">
+                                    <span>⚡</span> Operational
+                                </h3>
+                                <div class="text-xl font-bold text-amber-900">R${calculateOperationalCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-purple-50 rounded-lg p-3">
-                                <h3 class="font-semibold text-purple-800 mb-1">Profit</h3>
-                                <div class="text-lg font-bold">R${calculateProfit().toFixed(2)}</div>
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-purple-800 mb-2 flex items-center gap-2">
+                                    <span>💎</span> Profit
+                                </h3>
+                                <div class="text-xl font-bold text-purple-900">R${calculateProfit().toFixed(2)}</div>
                             </div>
                         </div>
 
-                        <div class="bg-indigo-100 rounded-lg p-4 mt-4 border-2 border-indigo-300">
-                            <h3 class="font-semibold text-indigo-800 mb-2">Final Selling Price</h3>
-                            <div class="text-2xl font-bold">R${calculateFinalPrice().toFixed(2)}</div>
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-6 mt-6 transform transition-all hover:scale-[1.02] gradient-animation glow">
+                            <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+                                <span class="text-2xl pulse-animation">🎯</span> Final Selling Price
+                            </h3>
+                            <div class="text-3xl font-bold mb-2">R${calculateFinalPrice().toFixed(2)}</div>
+                            <div class="text-sm opacity-80">
+                                ${state.markup}% markup • ${((calculateProfit() / calculateFinalPrice()) * 100).toFixed(1)}% profit margin
+                            </div>
                         </div>
                     </div>
 
                     <!-- Settings -->
-                    <div class="bg-white rounded-lg shadow-lg p-4">
-                        <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                            ⚙️ ${state.editingProduct ? `Editing: ${state.editingProduct.name}` : 'Settings'}
+                    <div class="modern-card rounded-2xl p-6">
+                        <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-3">
+                            <span class="text-3xl">⚙️</span>
+                            ${state.editingProduct ? `Editing: ${state.editingProduct.name}` : 'Settings'}
                         </h2>
 
-                        <div class="space-y-3">
+                        <div class="space-y-5">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-3">Product Name</label>
                                 <input 
                                     id="mobile-product-name"
                                     type="text" 
                                     value="${state.productName}" 
                                     oninput="updateState('productName', this.value)"
-                                    class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${state.editingProduct ? 'bg-blue-50 border-blue-300' : ''}"
+                                    class="modern-input w-full p-4 rounded-xl font-medium ${state.editingProduct ? 'border-indigo-300 bg-indigo-50' : ''}"
                                     placeholder="Enter product name"
                                 />
                             </div>
 
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                                <select onchange="updateStateImmediate('filamentType', this.value)" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
+                                <label class="block text-sm font-semibold text-gray-700 mb-3">Material Type</label>
+                                <select onchange="updateStateImmediate('filamentType', this.value)" class="modern-input w-full p-4 rounded-xl font-medium">
                                     ${Object.keys(filamentTypes).map(key => 
                                         `<option value="${key}" ${state.filamentType === key ? 'selected' : ''}>${key}</option>`
                                     ).join('')}
                                 </select>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Length (m)</label>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-3">Length (m)</label>
                                     <input 
                                         id="mobile-length"
                                         type="text" 
                                         inputmode="decimal"
                                         value="${state.filamentLength}" 
                                         oninput="updateStateNumber('filamentLength', this.value)"
-                                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                        class="modern-input w-full p-4 rounded-xl font-medium"
                                         placeholder="0.0"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Time (hours)</label>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-3">Time (hours)</label>
                                     <input 
                                         id="mobile-time"
                                         type="text" 
                                         inputmode="decimal"
                                         value="${state.printTime}" 
                                         oninput="updateStateNumber('printTime', this.value)"
-                                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                        class="modern-input w-full p-4 rounded-xl font-medium"
                                         placeholder="0.0"
                                     />
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Price (R)</label>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-3">Price (R)</label>
                                     <input 
                                         id="mobile-price"
                                         type="text" 
                                         inputmode="decimal"
                                         value="${state.filamentPrice}" 
                                         oninput="updateStateNumber('filamentPrice', this.value)"
-                                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                        class="modern-input w-full p-4 rounded-xl font-medium"
                                         placeholder="0.00"
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Rate (R/h)</label>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-3">Rate (R/h)</label>
                                     <input 
                                         id="mobile-rate"
                                         type="text" 
                                         inputmode="decimal"
                                         value="${state.hourlyRate}" 
                                         oninput="updateStateNumber('hourlyRate', this.value)"
-                                        class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                                        class="modern-input w-full p-4 rounded-xl font-medium"
                                         placeholder="0.00"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <div class="flex gap-3 mt-4">
+                        <div class="flex gap-4 mt-8">
                             <button 
                                 onclick="saveProduct()" 
                                 ${!state.productName.trim() ? 'disabled' : ''}
-                                class="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+                                class="modern-btn flex-1 py-4 px-6 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 💾 ${state.editingProduct ? 'Update' : 'Save'}
                             </button>
-                            <button onclick="clearCalculator()" class="bg-gray-500 text-white py-3 px-4 rounded-lg hover:bg-gray-600">
+                            <button onclick="clearCalculator()" class="bg-gradient-to-r from-gray-500 to-gray-600 text-white py-4 px-6 rounded-xl hover:from-gray-600 hover:to-gray-700 font-bold transition-all transform hover:scale-105">
                                 Clear
                             </button>
                         </div>
@@ -988,11 +1194,8 @@
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
                                 📥 Export
                             </button>
-                            <button onclick="exportAsDatabase()" class="text-purple-600 hover:text-purple-800 text-sm" title="Export as products.json database format">
-                                🗄️ DB
-                            </button>
-                            <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 text-sm" title="${state.autoExportEnabled ? 'Auto-export ON' : 'Auto-export OFF'}">
-                                ${state.autoExportEnabled ? '🔄' : '⏸️'} Auto
+                            <button onclick="syncToProductsFile()" class="text-blue-600 hover:text-blue-800 text-sm" title="Sync to products.json file">
+                                💾 Sync
                             </button>
                             ${state.products.length === 0 ? `
                                 <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 text-sm">
@@ -1086,35 +1289,41 @@
 
         function renderDesktopCalculator() {
             return `
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-2xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
-                        ⚙️ ${state.editingProduct ? `Editing: ${state.editingProduct.name}` : 'Calculator Settings'}
+                <div class="modern-card rounded-3xl p-8 transform transition-all hover:shadow-xl">
+                    <h2 class="text-3xl font-bold mb-8 text-gray-800 flex items-center gap-3">
+                        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-3 text-white">
+                            <span class="text-2xl">⚙️</span>
+                        </div>
+                        ${state.editingProduct ? `Editing: ${state.editingProduct.name}` : 'Calculator Settings'}
                     </h2>
 
-                    <div class="space-y-6">
+                    <div class="space-y-8">
                         <!-- Product Name -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Product Name</label>
                             <input 
                                 id="desktop-product-name"
                                 type="text" 
                                 value="${state.productName}" 
                                 oninput="updateState('productName', this.value)"
-                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 ${state.editingProduct ? 'bg-blue-50 border-blue-300' : ''}"
+                                class="modern-input w-full p-4 rounded-xl font-medium text-lg ${state.editingProduct ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300' : ''}"
                                 placeholder="Enter product name for saving"
                             />
                         </div>
 
                         <!-- Material Settings -->
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center gap-2">
-                                🎨 Material Settings
+                        <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
+                            <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-2 text-white">
+                                    <span>🎨</span>
+                                </div>
+                                Material Settings
                             </h3>
                             
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-2 gap-6">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Filament Type</label>
-                                    <select onchange="updateStateImmediate('filamentType', this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <label class="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Filament Type</label>
+                                    <select onchange="updateStateImmediate('filamentType', this.value)" class="modern-input w-full p-4 rounded-xl font-medium">
                                         ${Object.keys(filamentTypes).map(key => 
                                             `<option value="${key}" ${state.filamentType === key ? 'selected' : ''}>${key} - ${filamentTypes[key].name}</option>`
                                         ).join('')}
@@ -1299,34 +1508,46 @@
 
         function renderDesktopResults() {
             return `
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h2 class="text-2xl font-semibold mb-6 text-gray-800 flex items-center gap-2">
-                        💰 Cost Breakdown
+                <div class="modern-card rounded-3xl p-8 transform transition-all hover:shadow-xl">
+                    <h2 class="text-3xl font-bold mb-8 text-gray-800 flex items-center gap-3">
+                        <div class="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-3 text-white">
+                            <span class="text-2xl">💰</span>
+                        </div>
+                        Cost Breakdown
                     </h2>
 
-                    <div class="space-y-6">
+                    <div class="space-y-8">
                         <!-- Summary Cards -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4">
-                                <h3 class="text-lg font-medium mb-2">Material Cost</h3>
-                                <div class="text-2xl font-bold">R${calculateMaterialCost().toFixed(2)}</div>
-                                <p class="text-sm mt-2 opacity-90">
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl p-6 transform transition-all hover:scale-105 hover:shadow-xl">
+                                <div class="flex items-start justify-between mb-4">
+                                    <h3 class="text-xl font-bold">Material Cost</h3>
+                                    <span class="text-3xl opacity-50">🧱</span>
+                                </div>
+                                <div class="text-3xl font-bold mb-2">R${calculateMaterialCost().toFixed(2)}</div>
+                                <p class="text-sm opacity-90">
                                     ${(calculateVolume() * getCurrentDensity() / 1000).toFixed(3)} kg used
                                 </p>
                             </div>
 
-                            <div class="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4">
-                                <h3 class="text-lg font-medium mb-2">Labour Cost</h3>
-                                <div class="text-2xl font-bold">R${calculateLaborCost().toFixed(2)}</div>
-                                <p class="text-sm mt-2 opacity-90">
+                            <div class="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-6 transform transition-all hover:scale-105 hover:shadow-xl">
+                                <div class="flex items-start justify-between mb-4">
+                                    <h3 class="text-xl font-bold">Labour Cost</h3>
+                                    <span class="text-3xl opacity-50">👨‍💼</span>
+                                </div>
+                                <div class="text-3xl font-bold mb-2">R${calculateLaborCost().toFixed(2)}</div>
+                                <p class="text-sm opacity-90">
                                     ${state.printTime} hours @ R${state.hourlyRate}/hr
                                 </p>
                             </div>
 
-                            <div class="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-lg p-4">
-                                <h3 class="text-lg font-medium mb-2">Operational Cost</h3>
-                                <div class="text-2xl font-bold">R${calculateOperationalCost().toFixed(2)}</div>
-                                <p class="text-sm mt-2 opacity-90">
+                            <div class="bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl p-6 transform transition-all hover:scale-105 hover:shadow-xl">
+                                <div class="flex items-start justify-between mb-4">
+                                    <h3 class="text-xl font-bold">Operational Cost</h3>
+                                    <span class="text-3xl opacity-50">⚡</span>
+                                </div>
+                                <div class="text-3xl font-bold mb-2">R${calculateOperationalCost().toFixed(2)}</div>
+                                <p class="text-sm opacity-90">
                                     Power: R${calculatePowerCost().toFixed(2)} | Maint: R${calculateMaintenanceCost().toFixed(2)}
                                 </p>
                             </div>
@@ -1395,26 +1616,26 @@
             const displayProducts = state.filteredProducts.length > 0 ? state.filteredProducts : state.products;
             
             return `
-                <div class="bg-white rounded-xl shadow-lg p-6 mt-6 lg:col-span-2">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                            📦 Saved Products (${displayProducts.length}${state.products.length !== displayProducts.length ? ` of ${state.products.length}` : ''})
+                <div class="modern-card rounded-3xl p-8 mt-8 lg:col-span-2 fade-in">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                            <div class="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl p-3 text-white">
+                                <span class="text-2xl">📦</span>
+                            </div>
+                            Saved Products (${displayProducts.length}${state.products.length !== displayProducts.length ? ` of ${state.products.length}` : ''})
                         </h2>
-                        <div class="flex gap-3 flex-wrap">
-                            <button onclick="importProducts()" class="text-green-600 hover:text-green-800 font-medium">
+                        <div class="flex gap-4 flex-wrap">
+                            <button onclick="importProducts()" class="bg-gradient-to-r from-emerald-500 to-green-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all transform hover:scale-105">
                                 📤 Import
                             </button>
-                            <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 font-medium">
+                            <button onclick="exportProducts()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105">
                                 📥 Export
                             </button>
-                            <button onclick="exportAsDatabase()" class="text-purple-600 hover:text-purple-800 font-medium" title="Export as products.json database format">
-                                🗄️ Export DB
-                            </button>
-                            <button onclick="toggleAutoExport()" class="text-${state.autoExportEnabled ? 'orange' : 'gray'}-600 hover:text-${state.autoExportEnabled ? 'orange' : 'gray'}-800 font-medium" title="${state.autoExportEnabled ? 'Auto-export enabled - files auto-download' : 'Auto-export disabled - manual export only'}">
-                                ${state.autoExportEnabled ? '🔄 Auto-Export ON' : '⏸️ Auto-Export OFF'}
+                            <button onclick="syncToProductsFile()" class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all transform hover:scale-105" title="Sync products to products.json file">
+                                💾 Sync to File
                             </button>
                             ${state.products.length === 0 ? `
-                                <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 font-medium">
+                                <button onclick="loadSampleData()" class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-700 transition-all transform hover:scale-105">
                                     ✨ Load Samples
                                 </button>
                             ` : ''}
@@ -1422,21 +1643,21 @@
                     </div>
 
                     <!-- Search and Filter Controls -->
-                    <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="mb-8 p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                             <div class="md:col-span-2">
                                 <input 
                                     id="desktop-search"
                                     type="text" 
-                                    placeholder="Search products..." 
+                                    placeholder="🔍 Search products..." 
                                     value="${state.searchQuery}"
                                     oninput="updateSearch(this.value)"
-                                    class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    class="modern-input w-full p-4 rounded-xl font-medium"
                                 />
                             </div>
                             
                             <div>
-                                <select onchange="updateMaterialFilter(this.value)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <select onchange="updateMaterialFilter(this.value)" class="modern-input w-full p-4 rounded-xl font-medium">
                                     <option value="">All Materials</option>
                                     ${Object.keys(filamentTypes).map(key => 
                                         `<option value="${key}" ${state.selectedMaterial === key ? 'selected' : ''}>${key}</option>`
@@ -1762,20 +1983,18 @@
             render();
         }
 
-        function exportProducts(isAutoExport = false) {
+        function exportProducts() {
             const timestamp = new Date().toISOString();
             const dateStr = timestamp.split('T')[0];
             const timeStr = timestamp.split('T')[1].substring(0, 8).replace(/:/g, '-');
             
-            const prefix = isAutoExport ? 'auto-backup' : '3d-print-products';
-            const exportFileDefaultName = `${prefix}-${dateStr}-${timeStr}.json`;
+            const exportFileDefaultName = `3d-print-products-${dateStr}-${timeStr}.json`;
             
             const exportData = {
                 metadata: {
                     exportDate: timestamp,
-                    version: "2.1.0",
+                    version: "2.3.0",
                     productCount: state.products.length,
-                    autoExport: isAutoExport,
                     description: "3D Print Cost Calculator Product Database",
                     currency: "ZAR"
                 },
@@ -1793,83 +2012,67 @@
             linkElement.click();
             document.body.removeChild(linkElement);
             
-            if (isAutoExport) {
-                state.lastAutoExport = timestamp;
-                console.log(`Auto-exported ${state.products.length} products to ${exportFileDefaultName}`);
-                showNotification(`📁 Auto-exported ${state.products.length} products`, 'success');
+            console.log(`Exported ${state.products.length} products to ${exportFileDefaultName}`);
+            showNotification(`📥 Exported ${state.products.length} products`, 'success');
+        }
+
+        // Sync products to products.json file
+        async function syncToProductsFile() {
+            if (!state.syncEnabled) return;
+            
+            try {
+                const data = {
+                    metadata: {
+                        version: "2.3.0",
+                        lastUpdated: new Date().toISOString(),
+                        description: "3D Print Cost Calculator Product Database",
+                        totalProducts: state.products.length,
+                        currency: "ZAR"
+                    },
+                    products: state.products
+                };
+                
+                // Create a downloadable file to replace products.json
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'products.json';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                state.lastSync = new Date().toISOString();
+                showNotification('💾 Products synced to products.json', 'success');
+                console.log('Products synced to products.json file');
+                
+            } catch (error) {
+                console.error('Failed to sync products:', error);
+                showNotification('❌ Sync failed', 'error');
             }
         }
 
-        // Export as products.json database format (for updating the main database file)
-        function exportAsDatabase() {
-            const timestamp = new Date().toISOString();
-            
-            const databaseData = {
-                metadata: {
-                    version: "2.1.0",
-                    lastUpdated: timestamp,
-                    description: "3D Print Cost Calculator Product Database",
-                    totalProducts: state.products.length,
-                    currency: "ZAR"
-                },
-                products: state.products
-            };
-            
-            const dataStr = JSON.stringify(databaseData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', 'products.json');
-            linkElement.style.display = 'none';
-            document.body.appendChild(linkElement);
-            linkElement.click();
-            document.body.removeChild(linkElement);
-            
-            console.log(`Exported ${state.products.length} products as products.json database format`);
-            showNotification(`🗄️ Exported as database format (products.json)`, 'success');
-        }
-
-        // Auto-export functionality
-        let changesSinceLastExport = 0;
-
-        function triggerAutoExport() {
-            if (!state.autoExportEnabled) return;
-            
-            changesSinceLastExport++;
-            
-            // Auto-export conditions
-            const shouldAutoExport = (
-                changesSinceLastExport >= state.autoExportThreshold ||
-                (state.products.length > 0 && state.products.length % 10 === 0) // Every 10 products
-            );
-            
-            if (shouldAutoExport) {
-                setTimeout(() => {
-                    exportProducts(true);
-                    changesSinceLastExport = 0;
-                }, 1000); // Delay to ensure all operations complete
-            }
-        }
-
-        function toggleAutoExport() {
-            state.autoExportEnabled = !state.autoExportEnabled;
+        function toggleSync() {
+            state.syncEnabled = !state.syncEnabled;
             
             // Save preference to localStorage
             try {
-                localStorage.setItem('autoExportEnabled', state.autoExportEnabled.toString());
+                localStorage.setItem('syncEnabled', state.syncEnabled.toString());
             } catch (e) {
-                console.warn('Could not save auto-export preference');
+                console.warn('Could not save sync preference');
             }
             
             render();
             
-            if (state.autoExportEnabled) {
-                console.log('Auto-export enabled. Will export after every 5 changes or every 10 products.');
-                showNotification('🔄 Auto-export enabled', 'info');
+            if (state.syncEnabled) {
+                console.log('Sync enabled. Products will sync to products.json file.');
+                showNotification('🔄 Sync enabled', 'info');
             } else {
-                console.log('Auto-export disabled.');
-                showNotification('⏸️ Auto-export disabled', 'info');
+                console.log('Sync disabled.');
+                showNotification('⏸️ Sync disabled', 'info');
             }
         }
 
@@ -1966,7 +2169,7 @@
                     
                     // Save and refresh
                     saveToStorage();
-                    triggerAutoExport();
+                    syncToProductsFile();
                     await applyFilters();
                     
                 } catch (error) {
@@ -1999,7 +2202,7 @@
                     
                     state.products.push(...sampleProducts);
                     saveToStorage();
-                    triggerAutoExport();
+                    syncToProductsFile();
                     await applyFilters();
                     
                     alert(`Added ${sampleProducts.length} sample products from data file!`);
@@ -2081,7 +2284,7 @@
             
             state.products.push(...sampleProducts);
             saveToStorage();
-            triggerAutoExport();
+            syncToProductsFile();
             await applyFilters();
             
             alert(`Added ${sampleProducts.length} sample products to help you get started!`);
@@ -2161,20 +2364,20 @@
                 // Initialize filtered products
                 state.filteredProducts = state.products;
                 
-                // Load auto-export preference
+                // Load sync preference
                 try {
-                    const autoExportPref = localStorage.getItem('autoExportEnabled');
-                    if (autoExportPref !== null) {
-                        state.autoExportEnabled = autoExportPref === 'true';
+                    const syncPref = localStorage.getItem('syncEnabled');
+                    if (syncPref !== null) {
+                        state.syncEnabled = syncPref === 'true';
                     }
                 } catch (e) {
-                    console.warn('Could not load auto-export preference');
+                    console.warn('Could not load sync preference');
                 }
                 
                 // Setup auto-backup monitoring
                 setupAutoBackup();
                 
-                console.log(`App initialization complete. Total products: ${state.products.length}, Auto-export: ${state.autoExportEnabled ? 'enabled' : 'disabled'}`);
+                console.log(`App initialization complete. Total products: ${state.products.length}, Sync: ${state.syncEnabled ? 'enabled' : 'disabled'}`);
             } catch (e) {
                 console.error('Database initialization failed, falling back to basic mode:', e);
                 
