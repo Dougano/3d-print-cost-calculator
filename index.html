@@ -15,7 +15,8 @@
     <script type="module">
       // Import the functions you need from the SDKs you need
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-      import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+      import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+      import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
       
       // Your web app's Firebase configuration
       const firebaseConfig = {
@@ -30,9 +31,16 @@
       // Initialize Firebase
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
+      const auth = getAuth(app);
+      const googleProvider = new GoogleAuthProvider();
       
       // Make Firebase functions available globally
       window.db = db;
+      window.auth = auth;
+      window.googleProvider = googleProvider;
+      window.signInWithPopup = signInWithPopup;
+      window.signOut = signOut;
+      window.onAuthStateChanged = onAuthStateChanged;
       window.collection = collection;
       window.addDoc = addDoc;
       window.getDocs = getDocs;
@@ -41,6 +49,7 @@
       window.doc = doc;
       window.query = query;
       window.orderBy = orderBy;
+      window.where = where;
     </script>
     <style>
         :root {
@@ -222,6 +231,10 @@
     <script>
         // Global state
         let state = {
+            // Authentication
+            user: null,
+            isAuthenticated: false,
+            
             // PWA
             deferredPrompt: null,
             showInstallButton: false,
@@ -324,9 +337,37 @@
 
         // Cost editing functions (removed)
 
+        // Authentication functions
+        async function signInWithGoogle() {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                console.log('Sign-in successful:', result.user.email);
+                showNotification('Signed in successfully!', 'success');
+            } catch (error) {
+                console.error('Sign-in error:', error);
+                showNotification('Sign-in failed. Please try again.', 'error');
+            }
+        }
+
+        async function signOutUser() {
+            try {
+                await signOut(auth);
+                console.log('Sign-out successful');
+                showNotification('Signed out successfully!', 'success');
+            } catch (error) {
+                console.error('Sign-out error:', error);
+                showNotification('Sign-out failed. Please try again.', 'error');
+            }
+        }
+
         // Product functions
         async function saveProduct() {
             if (!state.productName.trim()) return;
+            
+            if (!state.isAuthenticated) {
+                showNotification('Please sign in to save products to the cloud', 'warning');
+                return;
+            }
 
             const productData = {
                 id: state.editingProduct ? state.editingProduct.id : Date.now().toString(),
@@ -348,7 +389,8 @@
                 operationalCost: calculateOperationalCost(),
                 finalPrice: calculateFinalPrice(),
                 profit: calculateProfit(),
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                userId: state.isAuthenticated ? state.user.uid : null
             };
 
             try {
@@ -393,6 +435,11 @@
         }
 
         async function deleteProduct(id) {
+            if (!state.isAuthenticated) {
+                showNotification('Please sign in to delete products', 'warning');
+                return;
+            }
+            
             if (confirm('Are you sure you want to delete this product?')) {
                 try {
                     const product = state.products.find(p => p.id === id);
@@ -411,12 +458,18 @@
         }
 
         async function duplicateProduct(product) {
+            if (!state.isAuthenticated) {
+                showNotification('Please sign in to duplicate products', 'warning');
+                return;
+            }
+            
             try {
                 const duplicatedProduct = {
                     ...product,
                     id: Date.now().toString(),
                     name: product.name + ' (Copy)',
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    userId: state.user.uid
                 };
                 delete duplicatedProduct.firebaseId; // Remove Firebase ID so it gets a new one
                 
@@ -761,7 +814,23 @@
         async function loadFromStorage() {
             try {
                 // Load products from Firestore
-                const q = window.query(window.collection(window.db, 'products'), window.orderBy('createdAt', 'desc'));
+                let q;
+                if (state.isAuthenticated) {
+                    // Load only user's products when authenticated
+                    q = window.query(
+                        window.collection(window.db, 'products'), 
+                        window.where('userId', '==', state.user.uid),
+                        window.orderBy('createdAt', 'desc')
+                    );
+                } else {
+                    // Load products without userId when not authenticated (backward compatibility)
+                    q = window.query(
+                        window.collection(window.db, 'products'), 
+                        window.where('userId', '==', null),
+                        window.orderBy('createdAt', 'desc')
+                    );
+                }
+                
                 const querySnapshot = await window.getDocs(q);
                 
                 state.products = [];
@@ -879,7 +948,24 @@
 
                     <!-- Header -->
                     <div class="mb-8 text-center fade-in">
-                        <div class="modern-card bg-white/10 backdrop-blur-lg border-white/20 p-8 rounded-3xl gradient-animation" style="background: linear-gradient(-45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));">
+                        <div class="modern-card bg-white/10 backdrop-blur-lg border-white/20 p-8 rounded-3xl gradient-animation relative" style="background: linear-gradient(-45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));">
+                            <!-- Authentication Status -->
+                            <div class="absolute top-4 right-4 flex items-center gap-3">
+                                ${state.isAuthenticated ? `
+                                    <div class="flex items-center gap-3 bg-white/20 backdrop-blur rounded-full px-4 py-2">
+                                        <img src="${state.user.photoURL}" alt="Profile" class="w-6 h-6 rounded-full">
+                                        <span class="text-white text-sm font-medium">${state.user.displayName || state.user.email}</span>
+                                        <button onclick="signOutUser()" class="text-white/80 hover:text-white text-sm font-medium">
+                                            Sign Out
+                                        </button>
+                                    </div>
+                                ` : `
+                                    <button onclick="signInWithGoogle()" class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium hover:bg-white/30 transition-all duration-200">
+                                        <span class="mr-2">🔒</span> Sign In
+                                    </button>
+                                `}
+                            </div>
+                            
                             <h1 class="text-3xl md:text-5xl font-bold text-white mb-4 flex items-center justify-center gap-4">
                                 <span class="text-4xl md:text-6xl float-animation">🧮</span>
                                 3D Print Calculator
@@ -895,6 +981,15 @@
                                 <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
                                     <span class="mr-2">🔧</span> PWA Enabled
                                 </div>
+                                ${state.isAuthenticated ? `
+                                    <div class="bg-green-500/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
+                                        <span class="mr-2">☁️</span> Cloud Sync
+                                    </div>
+                                ` : `
+                                    <div class="bg-yellow-500/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
+                                        <span class="mr-2">💾</span> Local Storage
+                                    </div>
+                                `}
                             </div>
                         </div>
                     </div>
@@ -2046,6 +2141,11 @@
 
         // Load sample data from embedded data
         async function loadSampleData() {
+            if (!state.isAuthenticated) {
+                showNotification('Please sign in to load sample products', 'warning');
+                return;
+            }
+            
             if (state.products.length > 0) {
                 if (!confirm('This will add sample products to your existing data. Continue?')) {
                     return;
@@ -2126,8 +2226,9 @@
             // Add sample products to Firebase
             try {
                 for (const product of sampleProducts) {
-                    const docRef = await window.addDoc(window.collection(window.db, 'products'), product);
-                    state.products.push({ ...product, firebaseId: docRef.id });
+                    const productWithUserId = { ...product, userId: state.user.uid };
+                    const docRef = await window.addDoc(window.collection(window.db, 'products'), productWithUserId);
+                    state.products.push({ ...productWithUserId, firebaseId: docRef.id });
                 }
                 await applyFilters();
                 showNotification(`Added ${sampleProducts.length} sample products!`, 'success');
@@ -2155,7 +2256,32 @@
         // Initialize app
         async function init() {
             try {
-                // Initialize PouchDB database first
+                // Set up authentication listener
+                onAuthStateChanged(auth, async (user) => {
+                    const wasAuthenticated = state.isAuthenticated;
+                    if (user) {
+                        state.user = user;
+                        state.isAuthenticated = true;
+                        console.log('User signed in:', user.email);
+                    } else {
+                        state.user = null;
+                        state.isAuthenticated = false;
+                        console.log('User signed out');
+                    }
+                    
+                    // Reload products when auth state changes
+                    if (wasAuthenticated !== state.isAuthenticated) {
+                        try {
+                            await loadFromStorage();
+                        } catch (error) {
+                            console.error('Error reloading products after auth change:', error);
+                        }
+                    }
+                    
+                    render();
+                });
+
+                // Initialize database first
                 await initDatabase();
                 
                 // Migrate existing data in order: IndexedDB -> localStorage -> PouchDB
