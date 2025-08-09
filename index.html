@@ -301,6 +301,12 @@
             const density = getCurrentDensity();
             const volume = calculateVolume();
             const mass = (volume * density) / 1000;
+            
+            // Prevent division by zero
+            if (state.filamentWeight === 0 || !state.filamentWeight) {
+                return 0;
+            }
+            
             const pricePerKg = state.filamentPrice / state.filamentWeight;
             return mass * pricePerKg;
         }
@@ -469,7 +475,7 @@
                     id: Date.now().toString(),
                     name: product.name + ' (Copy)',
                     createdAt: new Date().toISOString(),
-                    userId: state.user.uid
+                    userId: state.user ? state.user.uid : null
                 };
                 delete duplicatedProduct.firebaseId; // Remove Firebase ID so it gets a new one
                 
@@ -515,9 +521,9 @@
                 if (saved) {
                     const products = JSON.parse(saved);
                     if (products.length > 0) {
-                        console.log(`Migrating ${products.length} products from localStorage to PouchDB`);
+                        console.log(`Migrating ${products.length} products from localStorage to Firebase`);
                         state.products = products;
-                        await saveToDatabase();
+                        // Migration handled by Firebase sync
                         localStorage.removeItem('3d_printing_products');
                         console.log('Migration to PouchDB complete, localStorage cleared');
                     }
@@ -543,9 +549,9 @@
                             getAll.onsuccess = async () => {
                                 const products = getAll.result;
                                 if (products && products.length > 0) {
-                                    console.log(`Migrating ${products.length} products from IndexedDB to PouchDB`);
+                                    console.log(`Migrating ${products.length} products from IndexedDB to Firebase`);
                                     state.products = products;
-                                    await saveToDatabase();
+                                    // Migration handled by Firebase sync
                                     
                                     // Clean up old IndexedDB
                                     idb.close();
@@ -571,7 +577,7 @@
 
         // Advanced querying functions
         async function searchProducts(query) {
-            if (!db || !query.trim()) {
+            if (!window.db || !query.trim()) {
                 return state.products;
             }
             
@@ -615,7 +621,7 @@
         }
 
         async function filterProductsByMaterial(materialType) {
-            if (!db || !materialType) {
+            if (!window.db || !materialType) {
                 return state.products;
             }
             
@@ -657,7 +663,7 @@
         }
 
         async function sortProductsByPrice(ascending = false) {
-            if (!db) {
+            if (!window.db) {
                 return state.products.sort((a, b) => 
                     ascending ? a.finalPrice - b.finalPrice : b.finalPrice - a.finalPrice
                 );
@@ -702,7 +708,7 @@
         }
 
         async function getProductStats() {
-            if (!db) {
+            if (!window.db) {
                 return calculateStatsFromArray(state.products);
             }
             
@@ -756,7 +762,7 @@
         let syncHandler = null;
         
         async function setupSync(remoteUrl) {
-            if (!db || !remoteUrl) {
+            if (!window.db || !remoteUrl) {
                 console.error('Database or remote URL not provided');
                 return false;
             }
@@ -2224,7 +2230,7 @@
             // Add sample products to Firebase
             try {
                 for (const product of sampleProducts) {
-                    const productWithUserId = { ...product, userId: state.user.uid };
+                    const productWithUserId = { ...product, userId: state.user ? state.user.uid : null };
                     const docRef = await window.addDoc(window.collection(window.db, 'products'), productWithUserId);
                     state.products.push({ ...productWithUserId, firebaseId: docRef.id });
                 }
@@ -2283,8 +2289,7 @@
                     }
                 });
 
-                // Initialize database first
-                await initDatabase();
+                // Database initialization handled by Firebase module
                 
                 // Migrate existing data in order: IndexedDB -> localStorage -> PouchDB
                 await migrateFromIndexedDB();
@@ -2293,10 +2298,7 @@
                 // Load products from Firebase
                 await loadFromStorage();
                 
-                // Save merged data back to PouchDB
-                if (state.products.length > 0) {
-                    await saveToDatabase();
-                }
+                // Data automatically synced with Firebase when products are loaded
                 
                 // Initialize filtered products
                 state.filteredProducts = state.products;
