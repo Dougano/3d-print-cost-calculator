@@ -23,28 +23,27 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 - **Quick Clear** - One-click filter reset
 
 ### 🗄️ Enterprise-Grade Data Management
-- **PouchDB Integration** - Powerful NoSQL database with indexing
+- **Firebase Firestore** - Cloud-based NoSQL database with real-time sync
 - **Advanced Querying** - Fast searches across large product collections
-- **Data Migration** - Seamless upgrade from localStorage/IndexedDB
-- **Multiple Backups** - localStorage + sessionStorage fallbacks
+- **Automatic Cloud Backup** - Products saved instantly to the cloud
+- **LocalStorage Fallback** - Works offline if Firebase is unavailable
 - **Import/Export** - JSON file-based data exchange
 - **Sample Data** - Pre-loaded examples to get started quickly
 
-### 📁 File-Based Database System
-- **products.json Database** - Central product database file in repository
-- **Auto-Merge** - Automatically loads database products on first visit
-- **User Data Priority** - Local changes take precedence over database
-- **Database Export** - Export current products as new database format
-- **Auto-Export** - Automatic file downloads after every 5 changes
-- **Manual Export** - On-demand timestamped backups
+### ☁️ Cloud Database System
+- **Firebase Firestore** - Real-time cloud database for all products
+- **Automatic Sync** - Changes saved instantly to the cloud
+- **Cross-Device Access** - Access your products from any device
+- **Real-time Updates** - See changes across devices instantly
+- **Manual Export** - Download products as JSON for backup
 - **Import Products** - Load data from JSON files with validation
-- **Cross-Device Sharing** - Email or cloud-share product collections
+- **Secure Storage** - Firebase authentication and security rules
 
-### 🔄 Optional Cloud Sync
-- **CouchDB Support** - Real-time sync across devices
-- **Live Replication** - Automatic bidirectional sync
-- **Conflict Resolution** - Built-in conflict handling
-- **Offline-First** - Works with or without internet
+### 🔄 Real-Time Cloud Sync
+- **Firebase Integration** - Automatic sync across all devices
+- **Instant Updates** - Changes appear immediately on all devices
+- **Offline Support** - Works without internet, syncs when connected
+- **No Configuration** - Works out of the box
 
 ### 🎨 Modern UI Design
 - **Glass Morphism** - Translucent cards with backdrop blur effects
@@ -128,32 +127,31 @@ A comprehensive Progressive Web App (PWA) for calculating 3D printing costs in S
 ### Built With
 - **Vanilla JavaScript** - No framework dependencies
 - **Single HTML File** - Entire app in one file
-- **PouchDB** - Client-side NoSQL database with sync capabilities
+- **Firebase Firestore** - Cloud-based real-time database
 - **Tailwind CSS** - Styling and responsive design
 - **Service Worker** - Offline functionality and caching
 - **Web App Manifest** - PWA installation support
-- **Multi-layer Storage** - PouchDB → localStorage → sessionStorage fallbacks
+- **Multi-layer Storage** - Firebase → localStorage fallback
 
 ### Database Features
-- **IndexedDB Backend** - Persistent, structured storage
+- **Firebase Firestore** - Cloud-based NoSQL database
+- **Real-time Sync** - Instant updates across all devices
 - **Automatic Indexing** - Optimized queries on name, date, material, price
 - **Bulk Operations** - Efficient batch saving and loading
-- **Data Migration** - Seamless upgrades from older storage methods
-- **Conflict-free Sync** - CouchDB-compatible replication protocol
+- **Offline Support** - Works without internet, syncs when connected
+- **LocalStorage Fallback** - Seamless fallback when Firebase unavailable
 
 ### Browser Support
-- ✅ Chrome (Android/Desktop) - Full PouchDB support
-- ✅ Safari (iOS/macOS) - IndexedDB + localStorage fallback
-- ✅ Firefox (Android/Desktop) - Full PouchDB support
-- ✅ Edge (Desktop/Mobile) - Full PouchDB support
+- ✅ Chrome (Android/Desktop) - Full Firebase support
+- ✅ Safari (iOS/macOS) - Full Firebase support
+- ✅ Firefox (Android/Desktop) - Full Firebase support
+- ✅ Edge (Desktop/Mobile) - Full Firebase support
 
 ### File Structure
 ```
 3d-print-cost-calulator/
-├── index.html              # Main application (includes PouchDB integration)
+├── index.html              # Main application (includes Firebase integration)
 ├── manifest.json           # PWA manifest
-├── products.json           # Main product database (12 products)
-├── sample-products.json    # Sample data for new users
 └── README.md               # This documentation
 ```
 
@@ -172,12 +170,12 @@ This app is deployed using GitHub Pages and automatically updates when changes a
    ```
 
 ### Data Management
-- **Auto-Export** - Automatic file downloads after every 5 product changes
+- **Cloud Sync** - Automatic sync to Firebase Firestore
 - **Manual Export** - On-demand JSON backups with timestamps
 - **Import/Export** - JSON file format for data portability
-- **Cloud Sync Setup** - Optional CouchDB configuration
+- **Real-time Updates** - Instant sync across all devices
 - **Sample Data** - Load pre-configured products for testing
-- **Notifications** - Visual feedback for all export operations
+- **Notifications** - Visual feedback for all operations
 
 ## 📊 Default Values (South African Market)
 
@@ -213,12 +211,20 @@ For issues, questions, or feature requests:
 
 ## 🔄 Version History
 
-### v2.3.0 (Current) - Modern UI Edition
+### v2.4.0 (Current) - Firebase Cloud Edition
+- ☁️ **Firebase Integration** - Real-time cloud database with Firestore
+- 🔄 **Automatic Cloud Sync** - Products sync instantly across all devices
+- 🌐 **Cross-Device Access** - Access your products from anywhere
+- 📱 **Real-time Updates** - See changes immediately on all devices
+- 🔒 **Secure Storage** - Firebase authentication and security rules
+- 💾 **LocalStorage Fallback** - Works offline when Firebase unavailable
+- 🚀 **Zero Configuration** - Works out of the box with no setup
+
+### v2.3.0 - Modern UI Edition
 - 🎨 **Complete UI Redesign** - Modern glass morphism design with gradient backgrounds
 - ✨ **Advanced Animations** - Floating, pulsing, shimmer, and gradient shift effects
 - 💎 **Enhanced Visual Hierarchy** - Better typography, spacing, and component styling
 - 🌈 **Gradient Everything** - Beautiful gradient cards, buttons, and backgrounds
-- 🔄 **Replaced Auto-Export** - Direct sync to products.json file system
 - 🎯 **Improved User Experience** - Larger touch targets, better focus states
 - 📱 **Mobile-First Updates** - iOS-style navigation, enhanced mobile forms
 - 🚀 **Performance Optimizations** - Hardware-accelerated animations
@@ -229,9 +235,9 @@ For issues, questions, or feature requests:
 - ✅ **Improved Input Handling** - Better focus restoration and cursor positioning
 
 ### v2.2.0 - Database Edition
-- ✅ **JSON Database File** - Central products.json database with 12 sample products
-- ✅ **Auto-Merge System** - Automatically loads database products on startup
-- ✅ **Database Export** - Export current collection as products.json format
+- ✅ **Sample Products** - 12 pre-configured example products
+- ✅ **Import System** - Load products from JSON files
+- ✅ **Database Export** - Export current collection as JSON format
 - ✅ **Smart Data Management** - User data priority with database supplementation
 - ✅ **Copy-Paste Friendly Inputs** - Flexible number parsing for better UX
 
@@ -243,14 +249,13 @@ For issues, questions, or feature requests:
 - ✅ **Persistent Preferences** - Auto-export settings saved across sessions
 
 ### v2.0.0 - Enterprise Edition
-- ✅ **PouchDB Integration** - Advanced NoSQL database with indexing
+- ✅ **Advanced Database** - NoSQL database with indexing
 - ✅ **Search & Filtering** - Real-time search, material filters, smart sorting
 - ✅ **Import/Export** - JSON file-based data exchange
 - ✅ **Sample Data** - Pre-loaded product examples
-- ✅ **Data Migration** - Automatic upgrade from localStorage/IndexedDB
+- ✅ **Data Migration** - Automatic upgrade from localStorage
 - ✅ **Focus Management** - Smooth typing without input interruption
-- ✅ **Multi-layer Storage** - PouchDB + localStorage + sessionStorage fallbacks
-- ✅ **Cloud Sync Ready** - Optional CouchDB integration
+- ✅ **Multi-layer Storage** - Multiple storage fallbacks
 - ✅ **Bulk Operations** - Efficient batch data handling
 - ✅ **Product Statistics** - Advanced analytics and reporting
 

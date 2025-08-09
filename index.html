@@ -12,7 +12,36 @@
     <title>3D Print Cost Calculator</title>
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pouchdb@8.0.1/dist/pouchdb.min.js"></script>
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+      import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+      
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyD_uUc1ZNzbq1Yc0ZUXnoVG-zxe8hOC-b0",
+        authDomain: "d-print-calculator-fbcd9.firebaseapp.com",
+        projectId: "d-print-calculator-fbcd9",
+        storageBucket: "d-print-calculator-fbcd9.firebasestorage.app",
+        messagingSenderId: "55056651208",
+        appId: "1:55056651208:web:66a615e3f05579963c26fd"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      
+      // Make Firebase functions available globally
+      window.db = db;
+      window.collection = collection;
+      window.addDoc = addDoc;
+      window.getDocs = getDocs;
+      window.updateDoc = updateDoc;
+      window.deleteDoc = deleteDoc;
+      window.doc = doc;
+      window.query = query;
+      window.orderBy = orderBy;
+    </script>
     <style>
         :root {
             --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -300,7 +329,7 @@
             if (!state.productName.trim()) return;
 
             const productData = {
-                id: state.editingProduct ? state.editingProduct.id : Date.now(),
+                id: state.editingProduct ? state.editingProduct.id : Date.now().toString(),
                 name: state.productName,
                 filamentType: state.filamentType,
                 customDensity: state.customDensity,
@@ -322,17 +351,26 @@
                 createdAt: new Date().toISOString()
             };
 
-            if (state.editingProduct) {
-                state.products = state.products.map(p => p.id === state.editingProduct.id ? productData : p);
-                state.editingProduct = null;
-            } else {
-                state.products.push(productData);
-            }
+            try {
+                if (state.editingProduct) {
+                    // Update existing document in Firestore
+                    const docRef = window.doc(window.db, 'products', state.editingProduct.firebaseId);
+                    await window.updateDoc(docRef, productData);
+                    state.products = state.products.map(p => p.id === state.editingProduct.id ? { ...productData, firebaseId: state.editingProduct.firebaseId } : p);
+                    state.editingProduct = null;
+                } else {
+                    // Add new document to Firestore
+                    const docRef = await window.addDoc(window.collection(window.db, 'products'), productData);
+                    state.products.push({ ...productData, firebaseId: docRef.id });
+                }
 
-            state.productName = '';
-            saveToStorage();
-            syncToProductsFile();
-            await applyFilters();
+                state.productName = '';
+                await applyFilters();
+                showNotification('Product saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving product:', error);
+                showNotification('Error saving product. Please try again.', 'error');
+            }
         }
 
         function editProduct(product) {
@@ -356,24 +394,41 @@
 
         async function deleteProduct(id) {
             if (confirm('Are you sure you want to delete this product?')) {
-                state.products = state.products.filter(p => p.id !== id);
-                saveToStorage();
-                syncToProductsFile();
-                await applyFilters();
+                try {
+                    const product = state.products.find(p => p.id === id);
+                    if (product && product.firebaseId) {
+                        // Delete from Firestore
+                        await window.deleteDoc(window.doc(window.db, 'products', product.firebaseId));
+                    }
+                    state.products = state.products.filter(p => p.id !== id);
+                    await applyFilters();
+                    showNotification('Product deleted successfully!', 'success');
+                } catch (error) {
+                    console.error('Error deleting product:', error);
+                    showNotification('Error deleting product. Please try again.', 'error');
+                }
             }
         }
 
         async function duplicateProduct(product) {
-            const duplicatedProduct = {
-                ...product,
-                id: Date.now(),
-                name: product.name + ' (Copy)',
-                createdAt: new Date().toISOString()
-            };
-            state.products.push(duplicatedProduct);
-            saveToStorage();
-            syncToProductsFile();
-            await applyFilters();
+            try {
+                const duplicatedProduct = {
+                    ...product,
+                    id: Date.now().toString(),
+                    name: product.name + ' (Copy)',
+                    createdAt: new Date().toISOString()
+                };
+                delete duplicatedProduct.firebaseId; // Remove Firebase ID so it gets a new one
+                
+                // Add to Firestore
+                const docRef = await window.addDoc(window.collection(window.db, 'products'), duplicatedProduct);
+                state.products.push({ ...duplicatedProduct, firebaseId: docRef.id });
+                await applyFilters();
+                showNotification('Product duplicated successfully!', 'success');
+            } catch (error) {
+                console.error('Error duplicating product:', error);
+                showNotification('Error duplicating product. Please try again.', 'error');
+            }
         }
 
         function clearCalculator() {
@@ -397,150 +452,9 @@
             // resetAllCosts removed
         }
 
-        // Database functions (PouchDB)
-        let db = null;
-        const DB_NAME = 'print_calculator';
+        // Removed PouchDB database functions - now using Firebase Firestore
 
-        async function initDatabase() {
-            try {
-                db = new PouchDB(DB_NAME);
-                console.log('PouchDB database initialized successfully');
-                
-                // Create indexes for better querying
-                await createIndexes();
-                
-                return db;
-            } catch (e) {
-                console.error('PouchDB initialization failed:', e);
-                throw e;
-            }
-        }
-
-        async function createIndexes() {
-            try {
-                // Index for product name searches
-                await db.createIndex({
-                    index: { fields: ['name'] }
-                });
-                
-                // Index for date-based queries
-                await db.createIndex({
-                    index: { fields: ['createdAt'] }
-                });
-                
-                // Index for material type filtering
-                await db.createIndex({
-                    index: { fields: ['filamentType'] }
-                });
-                
-                // Compound index for sorting by price
-                await db.createIndex({
-                    index: { fields: ['finalPrice', 'createdAt'] }
-                });
-                
-                console.log('Database indexes created successfully');
-            } catch (e) {
-                console.error('Index creation error:', e);
-            }
-        }
-
-        async function saveToDatabase() {
-            if (!db) {
-                console.error('Database not initialized');
-                return;
-            }
-            
-            try {
-                // Get all existing docs to handle updates properly
-                const existingDocs = await db.allDocs({ include_docs: true });
-                const existingById = {};
-                existingDocs.rows.forEach(row => {
-                    if (row.doc && !row.doc._id.startsWith('_design/')) {
-                        existingById[row.doc.productId] = row.doc;
-                    }
-                });
-                
-                // Prepare documents for bulk operations
-                const docsToSave = [];
-                const currentProductIds = new Set();
-                
-                for (const product of state.products) {
-                    currentProductIds.add(product.id);
-                    const existingDoc = existingById[product.id];
-                    
-                    const doc = {
-                        _id: existingDoc ? existingDoc._id : `product_${product.id}`,
-                        _rev: existingDoc ? existingDoc._rev : undefined,
-                        productId: product.id,
-                        type: 'product',
-                        ...product
-                    };
-                    
-                    docsToSave.push(doc);
-                }
-                
-                // Add deleted docs
-                Object.values(existingById).forEach(doc => {
-                    if (!currentProductIds.has(doc.productId)) {
-                        docsToSave.push({
-                            ...doc,
-                            _deleted: true
-                        });
-                    }
-                });
-                
-                if (docsToSave.length > 0) {
-                    await db.bulkDocs(docsToSave);
-                }
-                
-                console.log('Products saved to PouchDB');
-            } catch (e) {
-                console.error('Database save error:', e);
-            }
-        }
-
-        async function loadFromDatabase() {
-            if (!db) {
-                console.error('Database not initialized');
-                return;
-            }
-            
-            try {
-                const result = await db.find({
-                    selector: { type: 'product' },
-                    sort: [{ 'createdAt': 'desc' }]
-                });
-                
-                state.products = result.docs.map(doc => ({
-                    id: doc.productId,
-                    name: doc.name,
-                    filamentType: doc.filamentType,
-                    customDensity: doc.customDensity,
-                    filamentDiameter: doc.filamentDiameter,
-                    filamentLength: doc.filamentLength,
-                    filamentPrice: doc.filamentPrice,
-                    filamentWeight: doc.filamentWeight,
-                    printTime: doc.printTime,
-                    hourlyRate: doc.hourlyRate,
-                    markup: doc.markup,
-                    printerPower: doc.printerPower,
-                    electricityRate: doc.electricityRate,
-                    maintenanceCostPerHour: doc.maintenanceCostPerHour,
-                    materialCost: doc.materialCost,
-                    laborCost: doc.laborCost,
-                    operationalCost: doc.operationalCost,
-                    finalPrice: doc.finalPrice,
-                    profit: doc.profit,
-                    createdAt: doc.createdAt
-                }));
-                
-                console.log(`Loaded ${state.products.length} products from PouchDB`);
-                return state.products;
-            } catch (e) {
-                console.error('Database load error:', e);
-                return [];
-            }
-        }
+        // Removed loadFromDatabase - now using loadFromStorage with Firebase
 
         async function migrateFromLocalStorage() {
             try {
@@ -807,7 +721,7 @@
                     console.log('Sync change:', info);
                     // Reload products when changes come from remote
                     if (info.direction === 'pull') {
-                        loadFromDatabase().then(() => render());
+                        loadFromStorage().then(() => render());
                     }
                 }).on('paused', () => {
                     console.log('Sync paused');
@@ -838,36 +752,30 @@
         }
 
         // Enhanced storage with multiple fallbacks
+        // Firebase doesn't need explicit save calls - data is saved when added/updated
         function saveToStorage() {
-            saveToDatabase().catch(e => {
-                console.log('PouchDB save failed, using fallbacks');
-                
-                // Try multiple storage methods for redundancy
-                try {
-                    // Primary fallback: localStorage
-                    localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
-                    localStorage.setItem('3d_printing_backup_timestamp', new Date().toISOString());
-                    
-                    // Secondary fallback: sessionStorage (temporary)
-                    sessionStorage.setItem('3d_printing_products_session', JSON.stringify(state.products));
-                    
-                    // Tertiary fallback: export trigger for user download
-                    if (state.products.length > 10) {
-                        console.warn('Large dataset detected. Consider enabling cloud sync for better persistence.');
-                    }
-                } catch (err) {
-                    console.error('All storage methods failed:', err);
-                    // Show user warning about data persistence
-                    showStorageWarning();
-                }
-            });
+            // Keep this function for backward compatibility but it's no longer needed
+            console.log('saveToStorage called - Firebase handles persistence automatically');
         }
 
-        function loadFromStorage() {
-            loadFromDatabase().catch(e => {
-                console.log('PouchDB load failed, using fallbacks');
+        async function loadFromStorage() {
+            try {
+                // Load products from Firestore
+                const q = window.query(window.collection(window.db, 'products'), window.orderBy('createdAt', 'desc'));
+                const querySnapshot = await window.getDocs(q);
+                
+                state.products = [];
+                querySnapshot.forEach((doc) => {
+                    state.products.push({ ...doc.data(), firebaseId: doc.id });
+                });
+                
+                console.log(`Loaded ${state.products.length} products from Firebase`);
+                await applyFilters();
+            } catch (error) {
+                console.error('Error loading products from Firebase:', error);
+                
+                // Fallback to localStorage if Firebase fails
                 try {
-                    // Try localStorage first
                     const saved = localStorage.getItem('3d_printing_products');
                     if (saved) {
                         state.products = JSON.parse(saved);
@@ -1193,9 +1101,6 @@
                             </button>
                             <button onclick="exportProducts()" class="text-blue-600 hover:text-blue-800 text-sm">
                                 📥 Export
-                            </button>
-                            <button onclick="syncToProductsFile()" class="text-blue-600 hover:text-blue-800 text-sm" title="Sync to products.json file">
-                                💾 Sync
                             </button>
                             ${state.products.length === 0 ? `
                                 <button onclick="loadSampleData()" class="text-purple-600 hover:text-purple-800 text-sm">
@@ -1631,9 +1536,6 @@
                             <button onclick="exportProducts()" class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105">
                                 📥 Export
                             </button>
-                            <button onclick="syncToProductsFile()" class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-700 transition-all transform hover:scale-105" title="Sync products to products.json file">
-                                💾 Sync to File
-                            </button>
                             ${state.products.length === 0 ? `
                                 <button onclick="loadSampleData()" class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-700 transition-all transform hover:scale-105">
                                     ✨ Load Samples
@@ -2016,44 +1918,7 @@
             showNotification(`📥 Exported ${state.products.length} products`, 'success');
         }
 
-        // Sync products to products.json file
-        async function syncToProductsFile() {
-            if (!state.syncEnabled) return;
-            
-            try {
-                const data = {
-                    metadata: {
-                        version: "2.3.0",
-                        lastUpdated: new Date().toISOString(),
-                        description: "3D Print Cost Calculator Product Database",
-                        totalProducts: state.products.length,
-                        currency: "ZAR"
-                    },
-                    products: state.products
-                };
-                
-                // Create a downloadable file to replace products.json
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'products.json';
-                a.style.display = 'none';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                state.lastSync = new Date().toISOString();
-                showNotification('💾 Products synced to products.json', 'success');
-                console.log('Products synced to products.json file');
-                
-            } catch (error) {
-                console.error('Failed to sync products:', error);
-                showNotification('❌ Sync failed', 'error');
-            }
-        }
+        // Removed syncToProductsFile - no longer needed with Firebase
 
         function toggleSync() {
             state.syncEnabled = !state.syncEnabled;
@@ -2169,7 +2034,6 @@
                     
                     // Save and refresh
                     saveToStorage();
-                    syncToProductsFile();
                     await applyFilters();
                     
                 } catch (error) {
@@ -2180,7 +2044,7 @@
             input.click();
         }
 
-        // Load sample data from file or embedded data
+        // Load sample data from embedded data
         async function loadSampleData() {
             if (state.products.length > 0) {
                 if (!confirm('This will add sample products to your existing data. Continue?')) {
@@ -2188,32 +2052,9 @@
                 }
             }
             
-            try {
-                // Try to load from sample file first
-                const response = await fetch('./sample-products.json');
-                if (response.ok) {
-                    const sampleProducts = await response.json();
-                    
-                    // Update IDs to avoid conflicts
-                    sampleProducts.forEach(p => {
-                        p.id = Date.now() + Math.random();
-                        p.createdAt = new Date().toISOString();
-                    });
-                    
-                    state.products.push(...sampleProducts);
-                    saveToStorage();
-                    syncToProductsFile();
-                    await applyFilters();
-                    
-                    alert(`Added ${sampleProducts.length} sample products from data file!`);
-                    return;
-                }
-            } catch (error) {
-                console.log('Could not load sample file, using embedded data:', error);
-            }
-            
-            // Fallback to embedded sample data
+            // Use embedded sample data
             const sampleProducts = [
+                {
                 {
                     id: Date.now() + 1,
                     name: "Phone Stand - Basic",
@@ -2282,12 +2123,19 @@
                 }
             ];
             
-            state.products.push(...sampleProducts);
-            saveToStorage();
-            syncToProductsFile();
-            await applyFilters();
+            // Add sample products to Firebase
+            try {
+                for (const product of sampleProducts) {
+                    const docRef = await window.addDoc(window.collection(window.db, 'products'), product);
+                    state.products.push({ ...product, firebaseId: docRef.id });
+                }
+                await applyFilters();
+                showNotification(`Added ${sampleProducts.length} sample products!`, 'success');
+            } catch (error) {
+                console.error('Error adding sample products:', error);
+                showNotification('Error adding sample products', 'error');
+            }
             
-            alert(`Added ${sampleProducts.length} sample products to help you get started!`);
         }
 
         // PWA functions
@@ -2302,43 +2150,7 @@
             }
         }
 
-        // Load products from JSON database file
-        async function loadFromProductsDatabase() {
-            try {
-                const response = await fetch('./products.json');
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.products && Array.isArray(data.products)) {
-                        console.log(`Loading ${data.products.length} products from products.json database`);
-                        console.log('Database metadata:', data.metadata);
-                        
-                        // Check if user has local products that should be preserved
-                        const hasLocalProducts = state.products.length > 0;
-                        
-                        if (hasLocalProducts) {
-                            // Merge with existing products - keep local changes priority
-                            const localProductIds = new Set(state.products.map(p => p.id));
-                            const newProducts = data.products.filter(p => !localProductIds.has(p.id));
-                            
-                            if (newProducts.length > 0) {
-                                state.products.push(...newProducts);
-                                console.log(`Added ${newProducts.length} new products from database`);
-                            }
-                        } else {
-                            // No local products, use database as initial data
-                            state.products = data.products;
-                            console.log(`Initialized with ${data.products.length} products from database`);
-                        }
-                        
-                        return true;
-                    }
-                }
-            } catch (error) {
-                console.log('Could not load products.json database:', error);
-            }
-            return false;
-        }
+        // Removed loadFromProductsDatabase - no longer needed with Firebase
 
         // Initialize app
         async function init() {
@@ -2350,11 +2162,8 @@
                 await migrateFromIndexedDB();
                 await migrateFromLocalStorage();
                 
-                // Load products from PouchDB (user's local data)
-                await loadFromDatabase();
-                
-                // Load products from JSON database file (supplement with database products)
-                await loadFromProductsDatabase();
+                // Load products from Firebase
+                await loadFromStorage();
                 
                 // Save merged data back to PouchDB
                 if (state.products.length > 0) {
@@ -2381,12 +2190,17 @@
             } catch (e) {
                 console.error('Database initialization failed, falling back to basic mode:', e);
                 
-                // Try to load from products.json as fallback
-                const loaded = await loadFromProductsDatabase();
-                if (!loaded) {
-                    // Final fallback - load from localStorage
-                    loadFromStorage();
+                // If Firebase fails, try localStorage fallback
+                try {
+                    const saved = localStorage.getItem('3d_printing_products');
+                    if (saved) {
+                        state.products = JSON.parse(saved);
+                        console.log('Loaded products from localStorage fallback');
+                    }
+                } catch (fallbackError) {
+                    console.error('localStorage fallback also failed:', fallbackError);
                 }
+            }
                 
                 state.filteredProducts = state.products;
             }
