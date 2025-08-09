@@ -953,8 +953,8 @@
                             <div class="absolute top-4 right-4 flex items-center gap-3">
                                 ${state.isAuthenticated ? `
                                     <div class="flex items-center gap-3 bg-white/20 backdrop-blur rounded-full px-4 py-2">
-                                        <img src="${state.user.photoURL}" alt="Profile" class="w-6 h-6 rounded-full">
-                                        <span class="text-white text-sm font-medium">${state.user.displayName || state.user.email}</span>
+                                        <img src="${state.user && state.user.photoURL ? state.user.photoURL : ''}" alt="Profile" class="w-6 h-6 rounded-full">
+                                        <span class="text-white text-sm font-medium">${state.user && (state.user.displayName || state.user.email)}</span>
                                         <button onclick="signOutUser()" class="text-white/80 hover:text-white text-sm font-medium">
                                             Sign Out
                                         </button>
