@@ -1077,7 +1077,7 @@
                             </h3>
                             <div class="text-3xl font-bold mb-2">R${calculateFinalPrice().toFixed(2)}</div>
                             <div class="text-sm opacity-80">
-                                ${state.markup}% markup • ${((calculateProfit() / calculateFinalPrice()) * 100).toFixed(1)}% profit margin
+                                ${state.markup}% markup • ${calculateFinalPrice() > 0 ? ((calculateProfit() / calculateFinalPrice()) * 100).toFixed(1) : 0}% profit margin
                             </div>
                         </div>
                     </div>
@@ -2278,7 +2278,11 @@
                         }
                     }
                     
-                    render();
+                    try {
+                        render();
+                    } catch (error) {
+                        console.error('Render error:', error);
+                    }
                 });
 
                 // Initialize database first
