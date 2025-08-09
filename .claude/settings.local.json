@@ -5,7 +5,9 @@
       "Bash(python:*)",
       "Bash(git push:*)",
       "Bash(rm:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
