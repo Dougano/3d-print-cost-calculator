@@ -815,7 +815,7 @@
             try {
                 // Load products from Firestore
                 let q;
-                if (state.isAuthenticated) {
+                if (state.isAuthenticated && state.user) {
                     // Load only user's products when authenticated
                     q = window.query(
                         window.collection(window.db, 'products'), 
