@@ -819,31 +819,38 @@
         }
 
         async function loadFromStorage() {
-            if (state.isAuthenticated) {
-                // Load from Firebase when authenticated
-                try {
-                    let q = window.query(
+            try {
+                let q;
+                if (state.isAuthenticated) {
+                    // Load user's specific products when authenticated
+                    q = window.query(
                         window.collection(window.db, 'products'), 
                         window.where('userId', '==', state.user.uid),
                         window.orderBy('createdAt', 'desc')
                     );
-                    
-                    const querySnapshot = await window.getDocs(q);
-                    
-                    state.products = [];
-                    querySnapshot.forEach((doc) => {
-                        state.products.push({ ...doc.data(), firebaseId: doc.id });
-                    });
-                    
-                    console.log(`Loaded ${state.products.length} products from Firebase`);
-                } catch (error) {
-                    console.error('Error loading products from Firebase:', error);
-                    state.products = [];
+                } else {
+                    // Load all public products when not authenticated (or products without userId for backward compatibility)
+                    q = window.query(
+                        window.collection(window.db, 'products'), 
+                        window.orderBy('createdAt', 'desc')
+                    );
                 }
-            } else {
-                // Clear products when not authenticated
+                
+                const querySnapshot = await window.getDocs(q);
+                
                 state.products = [];
-                console.log('Not authenticated - no products loaded');
+                querySnapshot.forEach((doc) => {
+                    state.products.push({ ...doc.data(), firebaseId: doc.id });
+                });
+                
+                if (state.isAuthenticated) {
+                    console.log(`Loaded ${state.products.length} user products from Firebase`);
+                } else {
+                    console.log(`Loaded ${state.products.length} products from Firebase (view-only)`);
+                }
+            } catch (error) {
+                console.error('Error loading products from Firebase:', error);
+                state.products = [];
             }
             
             await applyFilters();
@@ -1221,12 +1228,16 @@
                                     <div class="flex justify-between items-start mb-2 gap-2">
                                         <h3 class="font-semibold text-gray-800 truncate flex-1">${product.name}</h3>
                                         <div class="flex gap-1 sm:gap-2 flex-shrink-0">
-                                            <button onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-800 p-1">
-                                                ✏️
-                                            </button>
-                                            <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-800 p-1">
-                                                🗑️
-                                            </button>
+                                            ${state.isAuthenticated ? `
+                                                <button onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-800 p-1" title="Edit">
+                                                    ✏️
+                                                </button>
+                                                <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-800 p-1" title="Delete">
+                                                    🗑️
+                                                </button>
+                                            ` : `
+                                                <span class="text-xs text-gray-500">View only</span>
+                                            `}
                                         </div>
                                     </div>
                                     
@@ -1698,27 +1709,31 @@
                                             </td>
                                             <td class="py-3 px-4">
                                                 <div class="flex justify-center gap-2">
-                                                    <button 
-                                                        onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
-                                                        class="text-blue-600 hover:text-blue-800 p-1"
-                                                        title="Edit"
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                    <button 
-                                                        onclick="duplicateProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
-                                                        class="text-green-600 hover:text-green-800 p-1"
-                                                        title="Duplicate"
-                                                    >
-                                                        📋
-                                                    </button>
-                                                    <button 
-                                                        onclick="deleteProduct(${product.id})" 
-                                                        class="text-red-600 hover:text-red-800 p-1"
-                                                        title="Delete"
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                    ${state.isAuthenticated ? `
+                                                        <button 
+                                                            onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
+                                                            class="text-blue-600 hover:text-blue-800 p-1"
+                                                            title="Edit"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                        <button 
+                                                            onclick="duplicateProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" 
+                                                            class="text-green-600 hover:text-green-800 p-1"
+                                                            title="Duplicate"
+                                                        >
+                                                            📋
+                                                        </button>
+                                                        <button 
+                                                            onclick="deleteProduct(${product.id})" 
+                                                            class="text-red-600 hover:text-red-800 p-1"
+                                                            title="Delete"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    ` : `
+                                                        <span class="text-sm text-gray-500">View only</span>
+                                                    `}
                                                 </div>
                                             </td>
                                         </tr>
@@ -2258,10 +2273,10 @@
                 console.log(`App initialization complete. Total products: ${state.products.length}`);
             } catch (e) {
                 console.error('Database initialization failed:', e);
-                // Firebase is the only data source - no fallback
+                // If Firebase fails completely, show empty state
                 state.products = [];
                 state.filteredProducts = [];
-                showNotification('Please sign in to access your products', 'warning');
+                showNotification('Unable to load products. Please check your connection.', 'error');
             }
             
             // PWA setup
