@@ -1,9 +1,10 @@
-const CACHE_NAME = '3d-print-calc-v1.2';
+const CACHE_NAME = '3d-print-calc-v1.3';
 const urlsToCache = [
     './',
     './index.html',
     './manifest.json',
-    'https://cdn.tailwindcss.com'
+    './favicon.svg'
+    // External resources like CDNs are cached dynamically
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,6 +37,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Skip caching for cross-origin requests to avoid CORS issues
+    const url = new URL(event.request.url);
+    const isExternal = url.origin !== location.origin;
+    
     if (event.request.method === 'GET') {
         event.respondWith(
             caches.match(event.request)
@@ -49,24 +54,30 @@ self.addEventListener('fetch', (event) => {
                     const fetchRequest = event.request.clone();
                     
                     return fetch(fetchRequest).then((response) => {
-                        // Check if we received a valid response
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                        // Don't cache external resources or non-successful responses
+                        if (!response || 
+                            response.status !== 200 || 
+                            response.type !== 'basic' ||
+                            isExternal) {
                             return response;
                         }
                         
-                        // Clone the response
+                        // Clone the response for caching
                         const responseToCache = response.clone();
                         
                         caches.open(CACHE_NAME)
                             .then((cache) => {
-                                cache.put(event.request, responseToCache);
+                                // Only cache same-origin requests
+                                if (!isExternal) {
+                                    cache.put(event.request, responseToCache);
+                                }
                             });
                         
                         return response;
                     });
                 })
                 .catch(() => {
-                    // Offline fallback
+                    // Offline fallback for navigation requests
                     if (event.request.mode === 'navigate') {
                         return new Response('<h1>Offline - App cached locally</h1>', {
                             headers: { 'Content-Type': 'text/html' }
