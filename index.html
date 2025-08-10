@@ -2043,7 +2043,12 @@
         }
 
         // Import products from JSON file
-        function importProducts() {
+        async function importProducts() {
+            if (!state.isAuthenticated) {
+                showNotification('Please sign in to import products', 'warning');
+                return;
+            }
+
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json';
@@ -2084,6 +2089,10 @@
                         `Click Cancel to REPLACE all existing products`
                     );
                     
+                    showNotification('Importing products to Firebase...', 'info');
+                    
+                    let importedCount = 0;
+                    
                     if (action) {
                         // Add to existing products (check for duplicates)
                         const existingNames = new Set(state.products.map(p => p.name.toLowerCase()));
@@ -2091,30 +2100,70 @@
                             !existingNames.has(p.name.toLowerCase())
                         );
                         
-                        // Update IDs to avoid conflicts
-                        newProducts.forEach(p => {
-                            p.id = Date.now() + Math.random();
-                            p.createdAt = p.createdAt || new Date().toISOString();
-                        });
+                        // Save each new product to Firebase
+                        for (const product of newProducts) {
+                            const productData = {
+                                ...product,
+                                id: Date.now() + Math.random(),
+                                createdAt: new Date().toISOString(),
+                                userId: state.user.uid
+                            };
+                            delete productData.firebaseId; // Remove any existing firebaseId
+                            
+                            try {
+                                const docRef = await window.addDoc(window.collection(window.db, 'products'), productData);
+                                state.products.push({ ...productData, firebaseId: docRef.id });
+                                importedCount++;
+                            } catch (error) {
+                                console.error('Error importing product:', product.name, error);
+                            }
+                        }
                         
-                        state.products.push(...newProducts);
-                        alert(`Added ${newProducts.length} new products. Skipped ${validProducts.length - newProducts.length} duplicates.`);
+                        showNotification(`Added ${importedCount} new products. Skipped ${validProducts.length - newProducts.length} duplicates.`, 'success');
                     } else {
-                        // Replace all products
-                        validProducts.forEach(p => {
-                            p.id = p.id || Date.now() + Math.random();
-                            p.createdAt = p.createdAt || new Date().toISOString();
-                        });
-                        state.products = validProducts;
-                        alert(`Replaced all products with ${validProducts.length} imported products.`);
+                        // Replace all products - delete existing ones first
+                        try {
+                            // Delete user's existing products from Firebase
+                            const userProducts = state.products.filter(p => p.firebaseId);
+                            for (const product of userProducts) {
+                                await window.deleteDoc(window.doc(window.db, 'products', product.firebaseId));
+                            }
+                            
+                            // Clear local state
+                            state.products = [];
+                            
+                            // Add all imported products to Firebase
+                            for (const product of validProducts) {
+                                const productData = {
+                                    ...product,
+                                    id: product.id || Date.now() + Math.random(),
+                                    createdAt: product.createdAt || new Date().toISOString(),
+                                    userId: state.user.uid
+                                };
+                                delete productData.firebaseId;
+                                
+                                try {
+                                    const docRef = await window.addDoc(window.collection(window.db, 'products'), productData);
+                                    state.products.push({ ...productData, firebaseId: docRef.id });
+                                    importedCount++;
+                                } catch (error) {
+                                    console.error('Error importing product:', product.name, error);
+                                }
+                            }
+                            
+                            showNotification(`Replaced all products with ${importedCount} imported products.`, 'success');
+                        } catch (error) {
+                            console.error('Error replacing products:', error);
+                            showNotification('Error replacing products. Some may not have been imported.', 'error');
+                        }
                     }
                     
-                    // Save and refresh
-                    saveToStorage();
+                    // Refresh UI
                     await applyFilters();
+                    render();
                     
                 } catch (error) {
-                    alert(`Import failed: ${error.message}`);
+                    showNotification(`Import failed: ${error.message}`, 'error');
                     console.error('Import error:', error);
                 }
             };
