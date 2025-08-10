@@ -1,11 +1,12 @@
-const CACHE_NAME = '3d-print-calc-v1.3';
+const CACHE_NAME = '3d-print-calc-v1.4';
+// Use relative paths that work on GitHub Pages
 const urlsToCache = [
     './',
     './index.html',
     './manifest.json',
-    './favicon.svg'
-    // External resources like CDNs are cached dynamically
-];
+    './favicon.svg',
+    './service-worker.js'
+].filter(url => url); // Remove any undefined entries
 
 self.addEventListener('install', (event) => {
     console.log('Service Worker installing');
@@ -13,7 +14,18 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Opened cache');
-                return cache.addAll(urlsToCache);
+                // Cache resources one by one to handle failures gracefully
+                return Promise.all(
+                    urlsToCache.map(url => {
+                        return cache.add(url).catch(err => {
+                            console.warn('Failed to cache:', url, err);
+                            // Continue even if individual resources fail
+                        });
+                    })
+                );
+            })
+            .catch(err => {
+                console.error('Cache open failed:', err);
             })
     );
     self.skipWaiting();
@@ -71,9 +83,15 @@ self.addEventListener('fetch', (event) => {
                                 if (!isExternal) {
                                     cache.put(event.request, responseToCache);
                                 }
+                            })
+                            .catch(err => {
+                                console.warn('Failed to cache response:', err);
                             });
                         
                         return response;
+                    }).catch(err => {
+                        console.error('Fetch failed:', err);
+                        throw err;
                     });
                 })
                 .catch(() => {
