@@ -829,10 +829,9 @@
                         window.orderBy('createdAt', 'desc')
                     );
                 } else {
-                    // Load all public products when not authenticated (or products without userId for backward compatibility)
+                    // Load all products when not authenticated (without ordering to avoid index requirement)
                     q = window.query(
-                        window.collection(window.db, 'products'), 
-                        window.orderBy('createdAt', 'desc')
+                        window.collection(window.db, 'products')
                     );
                 }
                 
