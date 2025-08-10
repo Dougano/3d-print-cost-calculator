@@ -1813,7 +1813,7 @@
             renderTimeout = setTimeout(() => {
                 render();
                 restoreFocus();
-            }, 300);
+            }, 500);
         }
         
         // Immediate update for non-input changes
@@ -1866,14 +1866,14 @@
                 activeElement.dataset.userValue = cleanValue;
             }
             
-            // Debounce rendering
+            // Debounce rendering with longer delay for better decimal input experience
             if (renderTimeout) {
                 clearTimeout(renderTimeout);
             }
             renderTimeout = setTimeout(() => {
                 render();
                 restoreFocus();
-            }, 300);
+            }, 800);
         }
         
         // Restore focus to the previously active element
