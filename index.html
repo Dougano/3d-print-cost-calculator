@@ -377,11 +377,6 @@
         // Product functions
         async function saveProduct() {
             if (!state.productName.trim()) return;
-            
-            if (!state.isAuthenticated) {
-                showNotification('Please sign in to save products to the cloud', 'warning');
-                return;
-            }
 
             const productData = {
                 id: state.editingProduct ? state.editingProduct.id : Date.now().toString(),
@@ -408,24 +403,54 @@
             };
 
             try {
-                if (state.editingProduct) {
-                    // Update existing document in Firestore
-                    const docRef = window.doc(window.db, 'products', state.editingProduct.firebaseId);
-                    await window.updateDoc(docRef, productData);
-                    state.products = state.products.map(p => p.id === state.editingProduct.id ? { ...productData, firebaseId: state.editingProduct.firebaseId } : p);
-                    state.editingProduct = null;
+                if (state.isAuthenticated) {
+                    // Save to Firebase when authenticated
+                    if (state.editingProduct) {
+                        // Update existing document in Firestore
+                        const docRef = window.doc(window.db, 'products', state.editingProduct.firebaseId);
+                        await window.updateDoc(docRef, productData);
+                        state.products = state.products.map(p => p.id === state.editingProduct.id ? { ...productData, firebaseId: state.editingProduct.firebaseId } : p);
+                        state.editingProduct = null;
+                    } else {
+                        // Add new document to Firestore
+                        const docRef = await window.addDoc(window.collection(window.db, 'products'), productData);
+                        state.products.push({ ...productData, firebaseId: docRef.id });
+                    }
+                    showNotification('Product saved to cloud!', 'success');
                 } else {
-                    // Add new document to Firestore
-                    const docRef = await window.addDoc(window.collection(window.db, 'products'), productData);
-                    state.products.push({ ...productData, firebaseId: docRef.id });
+                    // Save to localStorage when not authenticated
+                    if (state.editingProduct) {
+                        state.products = state.products.map(p => p.id === state.editingProduct.id ? productData : p);
+                        state.editingProduct = null;
+                    } else {
+                        state.products.push(productData);
+                    }
+                    // Save to localStorage
+                    localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                    showNotification('Product saved locally!', 'success');
                 }
 
                 state.productName = '';
                 await applyFilters();
-                showNotification('Product saved successfully!', 'success');
             } catch (error) {
                 console.error('Error saving product:', error);
                 showNotification('Error saving product. Please try again.', 'error');
+                
+                // Fallback to localStorage on Firebase error
+                if (state.isAuthenticated) {
+                    try {
+                        if (state.editingProduct) {
+                            state.products = state.products.map(p => p.id === state.editingProduct.id ? productData : p);
+                            state.editingProduct = null;
+                        } else {
+                            state.products.push(productData);
+                        }
+                        localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                        showNotification('Product saved locally as backup!', 'warning');
+                    } catch (localError) {
+                        console.error('Fallback save failed:', localError);
+                    }
+                }
             }
         }
 
@@ -449,24 +474,32 @@
         }
 
         async function deleteProduct(id) {
-            if (!state.isAuthenticated) {
-                showNotification('Please sign in to delete products', 'warning');
-                return;
-            }
-            
             if (confirm('Are you sure you want to delete this product?')) {
                 try {
                     const product = state.products.find(p => p.id === id);
-                    if (product && product.firebaseId) {
-                        // Delete from Firestore
+                    
+                    if (state.isAuthenticated && product && product.firebaseId) {
+                        // Delete from Firestore when authenticated
                         await window.deleteDoc(window.doc(window.db, 'products', product.firebaseId));
                     }
+                    
+                    // Remove from local state
                     state.products = state.products.filter(p => p.id !== id);
+                    
+                    // Save to localStorage if not authenticated
+                    if (!state.isAuthenticated) {
+                        localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                    }
+                    
                     await applyFilters();
                     showNotification('Product deleted successfully!', 'success');
                 } catch (error) {
                     console.error('Error deleting product:', error);
-                    showNotification('Error deleting product. Please try again.', 'error');
+                    // Still remove locally even if Firebase delete fails
+                    state.products = state.products.filter(p => p.id !== id);
+                    localStorage.setItem('3d_printing_products', JSON.stringify(state.products));
+                    await applyFilters();
+                    showNotification('Product deleted locally!', 'warning');
                 }
             }
         }
@@ -835,59 +868,46 @@
         }
 
         async function loadFromStorage() {
-            try {
-                // Load products from Firestore
-                let q;
-                if (state.isAuthenticated && state.user) {
-                    // Load only user's products when authenticated
-                    q = window.query(
+            if (state.isAuthenticated) {
+                // Load from Firebase when authenticated
+                try {
+                    let q = window.query(
                         window.collection(window.db, 'products'), 
                         window.where('userId', '==', state.user.uid),
                         window.orderBy('createdAt', 'desc')
                     );
-                } else {
-                    // Load products without userId when not authenticated (backward compatibility)
-                    q = window.query(
-                        window.collection(window.db, 'products'), 
-                        window.where('userId', '==', null),
-                        window.orderBy('createdAt', 'desc')
-                    );
-                }
-                
-                const querySnapshot = await window.getDocs(q);
-                
-                state.products = [];
-                querySnapshot.forEach((doc) => {
-                    state.products.push({ ...doc.data(), firebaseId: doc.id });
-                });
-                
-                console.log(`Loaded ${state.products.length} products from Firebase`);
-                await applyFilters();
-            } catch (error) {
-                console.error('Error loading products from Firebase:', error);
-                
-                // Fallback to localStorage if Firebase fails
-                try {
-                    const saved = localStorage.getItem('3d_printing_products');
-                    if (saved) {
-                        state.products = JSON.parse(saved);
-                        console.log('Loaded from localStorage backup');
-                        await applyFilters();
-                        return;
-                    }
                     
-                    // Try sessionStorage as fallback
-                    const sessionSaved = sessionStorage.getItem('3d_printing_products_session');
-                    if (sessionSaved) {
-                        state.products = JSON.parse(sessionSaved);
-                        console.log('Loaded from sessionStorage backup');
-                        // Immediately try to save to localStorage
-                        localStorage.setItem('3d_printing_products', sessionSaved);
-                        await applyFilters();
-                    }
-                } catch (err) {
-                    console.error('Load error:', err);
+                    const querySnapshot = await window.getDocs(q);
+                    
+                    state.products = [];
+                    querySnapshot.forEach((doc) => {
+                        state.products.push({ ...doc.data(), firebaseId: doc.id });
+                    });
+                    
+                    console.log(`Loaded ${state.products.length} products from Firebase`);
+                    await applyFilters();
+                    return;
+                } catch (error) {
+                    console.error('Error loading products from Firebase:', error);
+                    // Fall through to localStorage
                 }
+            }
+            
+            // Load from localStorage (either when not authenticated or Firebase failed)
+            try {
+                const saved = localStorage.getItem('3d_printing_products');
+                if (saved) {
+                    state.products = JSON.parse(saved);
+                    console.log(`Loaded ${state.products.length} products from localStorage`);
+                } else {
+                    state.products = [];
+                    console.log('No saved products found');
+                }
+                await applyFilters();
+            } catch (err) {
+                console.error('Error loading from localStorage:', err);
+                state.products = [];
+                await applyFilters();
             }
         }
 
