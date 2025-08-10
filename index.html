@@ -910,10 +910,10 @@
             
             app.innerHTML = `
                 <div class="min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
-                    <div class="max-w-7xl mx-auto p-3 md:p-8">
+                    <div class="max-w-7xl mx-auto p-3 sm:p-4 md:p-8">
                     <!-- Notifications -->
                     ${state.notifications.length > 0 ? `
-                        <div class="fixed top-6 right-6 z-50 space-y-3">
+                        <div class="fixed top-2 right-2 sm:top-6 sm:right-6 z-50 space-y-3 max-w-[90vw] sm:max-w-sm">
                             ${state.notifications.map(notification => `
                                 <div class="modern-card ${
                                     notification.type === 'success' ? 'border-l-4 border-emerald-400' :
@@ -956,9 +956,9 @@
                     <div class="mb-8 text-center fade-in">
                         <div class="modern-card bg-white/10 backdrop-blur-lg border-white/20 p-8 rounded-3xl gradient-animation relative" style="background: linear-gradient(-45deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1), rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));">
                             <!-- Authentication Status -->
-                            <div class="absolute top-4 right-4 flex items-center gap-3">
+                            <div class="absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center gap-1 sm:gap-3">
                                 ${state.isAuthenticated ? `
-                                    <div class="flex items-center gap-3 bg-white/20 backdrop-blur rounded-full px-4 py-2">
+                                    <div class="flex items-center gap-1 sm:gap-3 bg-white/20 backdrop-blur rounded-full px-2 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm">
                                         <img src="${state.user && state.user.photoURL ? state.user.photoURL : ''}" alt="Profile" class="w-6 h-6 rounded-full">
                                         <span class="text-white text-sm font-medium">${state.user && (state.user.displayName || state.user.email)}</span>
                                         <button onclick="signOutUser()" class="text-white/80 hover:text-white text-sm font-medium">
@@ -972,11 +972,11 @@
                                 `}
                             </div>
                             
-                            <h1 class="text-3xl md:text-5xl font-bold text-white mb-4 flex items-center justify-center gap-4">
-                                <span class="text-4xl md:text-6xl float-animation">🧮</span>
+                            <h1 class="text-2xl sm:text-3xl md:text-5xl font-bold text-white mb-3 sm:mb-4 flex items-center justify-center gap-2 sm:gap-4">
+                                <span class="text-3xl sm:text-4xl md:text-6xl float-animation">🧮</span>
                                 3D Print Calculator
                             </h1>
-                            <p class="text-white/90 text-base md:text-lg font-medium">Calculate costs and manage your 3D printing business in South Africa</p>
+                            <p class="text-white/90 text-sm sm:text-base md:text-lg font-medium px-4 sm:px-0">Calculate costs and manage your 3D printing business in South Africa</p>
                             <div class="mt-6 flex justify-center gap-4">
                                 <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
                                     <span class="mr-2">🇿🇦</span> ZAR Currency
@@ -1005,13 +1005,13 @@
                         <!-- Mobile Navigation -->
                         <div class="modern-card p-2 rounded-2xl mb-6">
                             <div class="flex bg-gray-100 rounded-xl p-1">
-                                <button onclick="toggleMobileMenu(false)" class="flex-1 py-4 px-4 text-center font-semibold rounded-lg transition-all duration-300 ${!state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
+                                <button onclick="toggleMobileMenu(false)" class="flex-1 py-3 sm:py-4 px-2 sm:px-4 text-center font-semibold rounded-lg transition-all duration-300 ${!state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
                                     <div class="flex items-center justify-center gap-2">
                                         <span>🧮</span>
                                         Calculator
                                     </div>
                                 </button>
-                                <button onclick="toggleMobileMenu(true)" class="flex-1 py-4 px-4 text-center font-semibold rounded-lg transition-all duration-300 ${state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
+                                <button onclick="toggleMobileMenu(true)" class="flex-1 py-3 sm:py-4 px-2 sm:px-4 text-center font-semibold rounded-lg transition-all duration-300 ${state.showMobileMenu ? 'bg-white text-indigo-600 shadow-md transform scale-[0.98]' : 'text-gray-600 hover:text-gray-800'}">
                                     <div class="flex items-center justify-center gap-2">
                                         <span>📦</span>
                                         Products (${state.products.length})
@@ -1041,43 +1041,43 @@
             return `
                 <div class="space-y-6">
                     <!-- Cost Breakdown -->
-                    <div class="modern-card rounded-2xl p-6">
-                        <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-3 mb-6">
+                    <div class="modern-card rounded-2xl p-4 sm:p-6">
+                        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
                             <span class="text-3xl">💰</span>
                             Cost Breakdown
                         </h2>
 
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 transition-all hover:shadow-md">
-                                <h3 class="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                        <div class="grid grid-cols-2 gap-2 sm:gap-4 text-sm">
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-3 sm:p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-blue-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                                     <span>🧱</span> Material
                                 </h3>
-                                <div class="text-xl font-bold text-blue-900">R${calculateMaterialCost().toFixed(2)}</div>
+                                <div class="text-lg sm:text-xl font-bold text-blue-900">R${calculateMaterialCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-4 transition-all hover:shadow-md">
-                                <h3 class="font-bold text-emerald-800 mb-2 flex items-center gap-2">
+                            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-xl p-3 sm:p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-emerald-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                                     <span>👨‍💼</span> Labour
                                 </h3>
-                                <div class="text-xl font-bold text-emerald-900">R${calculateLaborCost().toFixed(2)}</div>
+                                <div class="text-lg sm:text-xl font-bold text-emerald-900">R${calculateLaborCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-4 transition-all hover:shadow-md">
-                                <h3 class="font-bold text-amber-800 mb-2 flex items-center gap-2">
+                            <div class="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl p-3 sm:p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-amber-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                                     <span>⚡</span> Operational
                                 </h3>
-                                <div class="text-xl font-bold text-amber-900">R${calculateOperationalCost().toFixed(2)}</div>
+                                <div class="text-lg sm:text-xl font-bold text-amber-900">R${calculateOperationalCost().toFixed(2)}</div>
                             </div>
 
-                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 transition-all hover:shadow-md">
-                                <h3 class="font-bold text-purple-800 mb-2 flex items-center gap-2">
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-3 sm:p-4 transition-all hover:shadow-md">
+                                <h3 class="font-bold text-purple-800 mb-1 sm:mb-2 flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
                                     <span>💎</span> Profit
                                 </h3>
-                                <div class="text-xl font-bold text-purple-900">R${calculateProfit().toFixed(2)}</div>
+                                <div class="text-lg sm:text-xl font-bold text-purple-900">R${calculateProfit().toFixed(2)}</div>
                             </div>
                         </div>
 
-                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-6 mt-6 transform transition-all hover:scale-[1.02] gradient-animation glow">
+                        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-4 sm:p-6 mt-4 sm:mt-6 transform transition-all hover:scale-[1.02] gradient-animation glow">
                             <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
                                 <span class="text-2xl pulse-animation">🎯</span> Final Selling Price
                             </h3>
@@ -1089,8 +1089,8 @@
                     </div>
 
                     <!-- Settings -->
-                    <div class="modern-card rounded-2xl p-6">
-                        <h2 class="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-3">
+                    <div class="modern-card rounded-2xl p-4 sm:p-6">
+                        <h2 class="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-800 flex items-center gap-2 sm:gap-3">
                             <span class="text-3xl">⚙️</span>
                             ${state.editingProduct ? `Editing: ${state.editingProduct.name}` : 'Settings'}
                         </h2>
@@ -1193,10 +1193,10 @@
             const displayProducts = state.filteredProducts.length > 0 ? state.filteredProducts : state.products;
             
             return `
-                <div class="bg-white rounded-lg shadow-lg p-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">Products (${displayProducts.length})</h2>
-                        <div class="flex gap-2 flex-wrap">
+                <div class="bg-white rounded-lg shadow-lg p-3 sm:p-4">
+                    <div class="flex justify-between items-center mb-3 sm:mb-4">
+                        <h2 class="text-lg sm:text-xl font-semibold text-gray-800">Products (${displayProducts.length})</h2>
+                        <div class="flex gap-1 sm:gap-2 flex-wrap">
                             <button onclick="importProducts()" class="text-green-600 hover:text-green-800 text-sm">
                                 📤 Import
                             </button>
@@ -1252,12 +1252,12 @@
                             ${state.products.length === 0 ? 'No products saved yet' : 'No products match your filters'}
                         </p>
                     ` : `
-                        <div class="space-y-3">
+                        <div class="space-y-2 sm:space-y-3">
                             ${displayProducts.map(product => `
-                                <div class="border border-gray-200 rounded-lg p-3">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <h3 class="font-semibold text-gray-800">${product.name}</h3>
-                                        <div class="flex gap-2">
+                                <div class="border border-gray-200 rounded-lg p-2 sm:p-3">
+                                    <div class="flex justify-between items-start mb-2 gap-2">
+                                        <h3 class="font-semibold text-gray-800 truncate flex-1">${product.name}</h3>
+                                        <div class="flex gap-1 sm:gap-2 flex-shrink-0">
                                             <button onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" class="text-blue-600 hover:text-blue-800 p-1">
                                                 ✏️
                                             </button>
@@ -1267,7 +1267,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                    <div class="grid grid-cols-2 gap-1 sm:gap-2 text-xs sm:text-sm">
                                         <div>
                                             <span class="text-gray-600">Material:</span>
                                             <span class="ml-2 font-medium">${product.filamentType}</span>
