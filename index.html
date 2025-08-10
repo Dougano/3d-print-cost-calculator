@@ -19,20 +19,31 @@
       import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
       
       // Your web app's Firebase configuration
+      // NOTE: Firebase is temporarily disabled due to configuration issues
+      // To enable Firebase authentication:
+      // 1. Create a Firebase project at https://console.firebase.google.com
+      // 2. Enable Google Sign-in in Authentication settings
+      // 3. Replace the config below with your project's configuration
       const firebaseConfig = {
-        apiKey: "AIzaSyD_uUc1ZNzbq1Yc0ZUXnoVG-zxe8hOC-b0",
-        authDomain: "d-print-calculator-fbcd9.firebaseapp.com",
-        projectId: "d-print-calculator-fbcd9",
-        storageBucket: "d-print-calculator-fbcd9.firebasestorage.app",
-        messagingSenderId: "55056651208",
-        appId: "1:55056651208:web:66a615e3f05579963c26fd"
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_AUTH_DOMAIN",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_STORAGE_BUCKET",
+        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+        appId: "YOUR_APP_ID"
       };
 
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
-      const googleProvider = new GoogleAuthProvider();
+      // Initialize Firebase (disabled for now)
+      let app = null;
+      let db = null;
+      let auth = null;
+      let googleProvider = null;
+      
+      // Uncomment the following lines when Firebase is properly configured:
+      // const app = initializeApp(firebaseConfig);
+      // const db = getFirestore(app);
+      // const auth = getAuth(app);
+      // const googleProvider = new GoogleAuthProvider();
       
       // Make Firebase functions available globally
       window.db = db;
@@ -346,6 +357,10 @@
         // Authentication functions
         async function signInWithGoogle() {
             try {
+                if (!auth || !googleProvider) {
+                    showNotification('Authentication is currently disabled. Using local storage only.', 'info');
+                    return;
+                }
                 const result = await signInWithPopup(auth, googleProvider);
                 console.log('Sign-in successful:', result.user.email);
                 showNotification('Signed in successfully!', 'success');
@@ -357,6 +372,10 @@
 
         async function signOutUser() {
             try {
+                if (!auth) {
+                    showNotification('Authentication is currently disabled.', 'info');
+                    return;
+                }
                 await signOut(auth);
                 console.log('Sign-out successful');
                 showNotification('Signed out successfully!', 'success');
@@ -819,35 +838,48 @@
 
         async function loadFromStorage() {
             try {
-                // Load products from Firestore
-                let q;
-                if (state.isAuthenticated && state.user) {
-                    // Load only user's products when authenticated
-                    q = window.query(
-                        window.collection(window.db, 'products'), 
-                        window.where('userId', '==', state.user.uid),
-                        window.orderBy('createdAt', 'desc')
-                    );
+                // Check if Firebase is configured
+                if (window.db && window.collection && window.getDocs) {
+                    // Load products from Firestore
+                    let q;
+                    if (state.isAuthenticated && state.user) {
+                        // Load only user's products when authenticated
+                        q = window.query(
+                            window.collection(window.db, 'products'), 
+                            window.where('userId', '==', state.user.uid),
+                            window.orderBy('createdAt', 'desc')
+                        );
+                    } else {
+                        // Load products without userId when not authenticated (backward compatibility)
+                        q = window.query(
+                            window.collection(window.db, 'products'), 
+                            window.where('userId', '==', null),
+                            window.orderBy('createdAt', 'desc')
+                        );
+                    }
+                    
+                    const querySnapshot = await window.getDocs(q);
+                    
+                    state.products = [];
+                    querySnapshot.forEach((doc) => {
+                        state.products.push({ ...doc.data(), firebaseId: doc.id });
+                    });
+                    
+                    console.log(`Loaded ${state.products.length} products from Firebase`);
+                    await applyFilters();
                 } else {
-                    // Load products without userId when not authenticated (backward compatibility)
-                    q = window.query(
-                        window.collection(window.db, 'products'), 
-                        window.where('userId', '==', null),
-                        window.orderBy('createdAt', 'desc')
-                    );
+                    // Firebase not configured, use localStorage
+                    const saved = localStorage.getItem('3d_printing_products');
+                    if (saved) {
+                        state.products = JSON.parse(saved);
+                        console.log('Loaded from localStorage');
+                    } else {
+                        state.products = [];
+                    }
+                    await applyFilters();
                 }
-                
-                const querySnapshot = await window.getDocs(q);
-                
-                state.products = [];
-                querySnapshot.forEach((doc) => {
-                    state.products.push({ ...doc.data(), firebaseId: doc.id });
-                });
-                
-                console.log(`Loaded ${state.products.length} products from Firebase`);
-                await applyFilters();
             } catch (error) {
-                console.error('Error loading products from Firebase:', error);
+                console.error('Error loading products:', error);
                 
                 // Fallback to localStorage if Firebase fails
                 try {
@@ -855,6 +887,7 @@
                     if (saved) {
                         state.products = JSON.parse(saved);
                         console.log('Loaded from localStorage backup');
+                        await applyFilters();
                         return;
                     }
                     
@@ -2261,34 +2294,40 @@
         // Initialize app
         async function init() {
             try {
-                // Set up authentication listener
-                onAuthStateChanged(auth, async (user) => {
-                    const wasAuthenticated = state.isAuthenticated;
-                    if (user) {
-                        state.user = user;
-                        state.isAuthenticated = true;
-                        console.log('User signed in:', user.email);
-                    } else {
-                        state.user = null;
-                        state.isAuthenticated = false;
-                        console.log('User signed out');
-                    }
-                    
-                    // Reload products when auth state changes
-                    if (wasAuthenticated !== state.isAuthenticated) {
-                        try {
-                            await loadFromStorage();
-                        } catch (error) {
-                            console.error('Error reloading products after auth change:', error);
+                // Check if Firebase is configured
+                if (auth && onAuthStateChanged) {
+                    // Set up authentication listener
+                    onAuthStateChanged(auth, async (user) => {
+                        const wasAuthenticated = state.isAuthenticated;
+                        if (user) {
+                            state.user = user;
+                            state.isAuthenticated = true;
+                            console.log('User signed in:', user.email);
+                        } else {
+                            state.user = null;
+                            state.isAuthenticated = false;
+                            console.log('User signed out');
                         }
-                    }
-                    
-                    try {
-                        render();
-                    } catch (error) {
-                        console.error('Render error:', error);
-                    }
-                });
+                        
+                        // Reload products when auth state changes
+                        if (wasAuthenticated !== state.isAuthenticated) {
+                            try {
+                                await loadFromStorage();
+                            } catch (error) {
+                                console.error('Error reloading products after auth change:', error);
+                            }
+                        }
+                        
+                        try {
+                            render();
+                        } catch (error) {
+                            console.error('Render error:', error);
+                        }
+                    });
+                } else {
+                    // Firebase not configured, just load and render
+                    console.log('Firebase authentication disabled - using local storage only');
+                }
 
                 // Database initialization handled by Firebase module
                 
