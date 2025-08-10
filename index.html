@@ -977,23 +977,23 @@
                                 3D Print Calculator
                             </h1>
                             <p class="text-white/90 text-sm sm:text-base md:text-lg font-medium px-4 sm:px-0">Calculate costs and manage your 3D printing business in South Africa</p>
-                            <div class="mt-6 flex justify-center gap-4">
-                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
-                                    <span class="mr-2">🇿🇦</span> ZAR Currency
+                            <div class="mt-6 grid grid-cols-2 sm:flex sm:justify-center gap-2 sm:gap-4 px-4 sm:px-0">
+                                <div class="bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-xs sm:text-sm font-medium flex items-center justify-center">
+                                    <span class="mr-1 sm:mr-2">🇿🇦</span> ZAR Currency
                                 </div>
-                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
-                                    <span class="mr-2">⚡</span> R3.50/kWh
+                                <div class="bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-xs sm:text-sm font-medium flex items-center justify-center">
+                                    <span class="mr-1 sm:mr-2">⚡</span> R3.50/kWh
                                 </div>
-                                <div class="bg-white/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
-                                    <span class="mr-2">🔧</span> PWA Enabled
+                                <div class="bg-white/20 backdrop-blur rounded-full px-3 py-2 text-white text-xs sm:text-sm font-medium flex items-center justify-center">
+                                    <span class="mr-1 sm:mr-2">🔧</span> PWA Enabled
                                 </div>
                                 ${state.isAuthenticated ? `
-                                    <div class="bg-green-500/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
-                                        <span class="mr-2">☁️</span> Cloud Sync
+                                    <div class="bg-green-500/20 backdrop-blur rounded-full px-3 py-2 text-white text-xs sm:text-sm font-medium flex items-center justify-center">
+                                        <span class="mr-1 sm:mr-2">☁️</span> Cloud Sync
                                     </div>
                                 ` : `
-                                    <div class="bg-yellow-500/20 backdrop-blur rounded-full px-4 py-2 text-white text-sm font-medium">
-                                        <span class="mr-2">💾</span> Local Storage
+                                    <div class="bg-yellow-500/20 backdrop-blur rounded-full px-3 py-2 text-white text-xs sm:text-sm font-medium flex items-center justify-center">
+                                        <span class="mr-1 sm:mr-2">💾</span> Local Storage
                                     </div>
                                 `}
                             </div>
