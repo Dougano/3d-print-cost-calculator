@@ -1,4 +1,4 @@
-const CACHE_NAME = '3d-print-calc-v1.4';
+const CACHE_NAME = '3d-print-calc-v2.0';
 // Use relative paths that work on GitHub Pages
 const urlsToCache = [
     './',
