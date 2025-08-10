@@ -829,9 +829,10 @@
                         window.orderBy('createdAt', 'desc')
                     );
                 } else {
-                    // Load all products when not authenticated (without ordering to avoid index requirement)
+                    // Load all products when not authenticated (ordered by creation date)
                     q = window.query(
-                        window.collection(window.db, 'products')
+                        window.collection(window.db, 'products'), 
+                        window.orderBy('createdAt', 'desc')
                     );
                 }
                 
