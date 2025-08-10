@@ -1,8 +1,8 @@
 const CACHE_NAME = '3d-print-calc-v1.2';
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/manifest.json',
+    './',
+    './index.html',
+    './manifest.json',
     'https://cdn.tailwindcss.com'
 ];
 
